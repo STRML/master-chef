@@ -10,10 +10,10 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-SKIP = {'.git', '.build', '__pycache__', '.venv', 'game', 'build', 'logs', 'dist', 'DerivedData'}
+SKIP = {'.git', '.build', '.setup', '__pycache__', '.venv', 'game', 'build', 'logs', 'dist', 'DerivedData'}
 BAD_SUFFIX = {'.exe', '.dll', '.map', '.iso', '.ipa', '.p12', '.p8', '.pfx', '.pem', '.key',
               '.mobileprovision', '.provisionprofile', '.o', '.a', '.dylib', '.so', '.pyc',
-              '.zip', '.tpf', '.hvt', '.hvs', '.bgra', '.mov', '.mp4', '.jsonl', '.log'}
+              '.zip', '.tpf', '.hvt', '.hvs', '.bgra', '.mov', '.mp4', '.jsonl', '.log', '.reg'}
 RULES = {
     'home-directory': re.compile(r'/(?:Users|home)/[^/\s"\']+'),
     'private-key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'),
@@ -35,7 +35,7 @@ def audit(root, strict=False):
         count+=1
         if (p.suffix.lower() in BAD_SUFFIX or p.name in {'.DS_Store','.env','halo-vision-registry.txt'}
             or any(part.endswith(('.app','.xcarchive','.dSYM')) for part in rel.parts)
-            or any(part in {'assessment','local-agent-inputs','.context','.claude'} for part in rel.parts)):
+            or any(part in {'assessment','local-agent-inputs','.context','.claude','.setup'} for part in rel.parts)):
             failures.append((str(rel),0,'non-source-artifact'))
         try:text=p.read_text(encoding='utf-8')
         except UnicodeError:

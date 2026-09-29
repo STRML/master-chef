@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.1
+
+- Adds `setup.sh` for guided retail ISO installation, existing-install imports,
+  private registry conversion, dependency setup, generation and Xcode handoff.
+- Bundles locally owned game files into the generated Xcode project and enables
+  automatic signing with the user's account.
+- Adds readiness reports, disk checks, resumable setup, and setup regressions.
+- Adds a dedicated agent setup guide and Windows-prepared installation fallback.
+- Keeps the original installer/key entry, patch selection and Apple signing as
+  explicit human steps; no game files or keys are distributed.
+
 ## 1.0.0
 
 First curated public source snapshot of the native visionOS runtime.

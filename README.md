@@ -1,11 +1,11 @@
-# Halo Vision 1.0
+# Halo Vision 1.0.1
 
 An unofficial, native Apple Vision Pro port of Halo: Combat Evolved for PC.
 The project translates a user-supplied Halo PC executable into native code and
 provides a Metal renderer, Windows compatibility layer, controller input,
 audio, and an immersive visionOS presenter.
 
-This is the **v1.0 source release**, based on the current runtime development
+This is the **v1.0.1 source release**, based on the current runtime development
 line. **You must supply your own Halo: Combat Evolved for PC retail disc or ISO
 and a valid product key**, plus your own Apple signing setup for headset
 installation. No game executable, maps, textures, sounds, product keys, saves,
@@ -21,42 +21,39 @@ or signed application are included.
 
 ## Get started
 
-### Build quick start
+### One-command guided setup
 
-Use an Apple Silicon Mac with Xcode, the visionOS SDK, command-line tools,
-and Python 3.12. The app targets visionOS 26.0; the build was validated with
-the 26.5 SDK.
-
-Install your own Halo PC copy using your disc or ISO and valid product key,
-then prepare the supported retail PC 1.10 installation. The app does not
-load an ISO directly. Custom Edition, Anniversary, and other executables
-are not interchangeable. Copy your matching executable to `game/halo.exe`
-and check its SHA-256 against [the supported digest](docs/BUILDING.md#supply-the-executable).
-Keep the complete installation for the game-data packaging step.
-
-From the repository root:
+On an Apple Silicon Mac with Xcode and the visionOS SDK:
 
 ```sh
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements-development.txt
-shasum -a 256 game/halo.exe
-
-python tools/generate_engine_reuse.py \
-  @decompilation/c9acf0c46954/function-addresses.txt \
-  @decompilation/c9acf0c46954/extra-function-entries.txt \
-  --label whole-exe --max-functions 10000 --trap-unsupported --discover --chunks 32
-python tools/export_engine_imports.py
-python tools/build_engine_vision.py --configuration Release --direct --clean
+git clone https://github.com/mitchaiet/master-chef.git
+cd master-chef
+./setup.sh "/path/to/HALO.iso"
 ```
 
-This produces an unsigned app at
-`native/EngineVision/.build/DirectXROS/HaloVision.app`. To run it on a Vision
-Pro, follow [Building and installing](docs/BUILDING.md) to add your own game
-files and private installation registry values, then sign and install with
-your own Apple account. Keep product keys, registry files, game data, and
-signed local packages out of public uploads.
-[Controls](docs/CONTROLS.md) covers the in-game layout.
+The wizard mounts your ISO read-only, opens the original installer for your
+key, applies your selected retail PC 1.10 updater, imports your game and
+private installation values, generates the engine, and opens Xcode with
+the game files already included. In Xcode, select your Apple Team, set a
+unique bundle ID, choose your Vision Pro and press Run.
+
+This is guided: you complete the original installer/update and Apple's
+signing/trust prompts. It requires Python 3.12, XcodeGen, a compatible Wine
+installation and 12 GiB free space. The [setup guide](docs/SETUP.md) covers
+prerequisites, the patch, resuming, and a Windows fallback if Wine cannot run
+the installer. An existing owned PC 1.10 installation can be imported without
+Wine. Custom Edition, Anniversary, MCC, and Xbox discs are not supported.
+
+- [Guided setup and troubleshooting](docs/SETUP.md)
+- **[Set up with a coding agent — copy/paste prompt and dedicated instructions](docs/AGENT_SETUP.md)**
+- [Manual build, signing, and installation](docs/BUILDING.md)
+- [Controller layout](docs/CONTROLS.md)
+
+Check readiness without installing or building:
+
+```sh
+./setup.sh "/path/to/HALO.iso" --stage check
+```
 
 ### Source checks
 

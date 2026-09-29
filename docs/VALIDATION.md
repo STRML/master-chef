@@ -1,4 +1,31 @@
-# v1.0 source-release validation
+# Source-release validation
+
+## 1.0.1 setup update
+
+- Passed 24 synthetic setup regressions: Windows/Wine registry parsing,
+  private-value error handling, owner-only files, supported-file import,
+  rollback, resume, preservation of changed files, payload manifests,
+  low-space refusal, installer refusal without a human terminal, and ISO
+  cleanup after failure/cancellation.
+- Passed the portable source suite on an Apple Silicon Mac, including the
+  new setup regressions.
+- Checked a real owned retail ISO with `--stage check --json`: the layout was
+  recognized, the original executable was identified as needing the PC 1.10
+  update, and the temporary read-only mount was detached afterward.
+- Verified XcodeGen with a synthetic local payload: both payload resources
+  appear in Copy Bundle Resources and automatic signing is enabled.
+- The current validation Mac had less than the required 12 GiB free. The
+  preflight correctly reported this. A fresh Wine installer/key-entry/update
+  session and the complete ISO-to-headset path were **not** run for this
+  update. The Windows fallback export instructions were not exercised on a
+  Windows machine. No new signed build or headset acceptance is claimed.
+
+The earlier hosted GitHub Actions attempts were blocked by the account's
+billing status before tests could start. Local test results above are not
+hosted Linux CI results. Original runtime code is unchanged by this setup
+update; app metadata is now 1.0.1 (build 101).
+
+## 1.0.0 runtime/source baseline
 
 The following checks were completed from the curated source tree on an
 Apple Silicon Mac. Local game data was used only for generation and optional

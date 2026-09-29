@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT for original project code; third-party notices retained",
   "formatVersion": 1,
-  "scope": "Source files only. No game payload, generated engine, signing material, binaries or Git history.",
-  "fileCount": 353,
-  "totalBytes": 5730186,
+  "scope": "Source files only. No game payload, generated engine, signing material, binaries or private Git history.",
+  "fileCount": 360,
+  "totalBytes": 5795233,
   "files": [
     {
       "path": ".github/workflows/source-checks.yml",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 507,
-      "sha256": "7cd0fae03bd5bff9df0bfc395b85101040b59136881e5c07449fd30173f32452"
+      "bytes": 522,
+      "sha256": "2eadad6c42a7106d328c8e81e04658d893835864bef9f3be84533b0de6a1ee11"
     },
     {
       "path": ".gitleaks.toml",
@@ -22,9 +22,14 @@
       "sha256": "a0f1b2acf03190030815fbd95021e551ffddab1c4e910fdbc2985fe2b831bb25"
     },
     {
+      "path": "AGENTS.md",
+      "bytes": 1166,
+      "sha256": "d6fa449cec1b0ef999bad31ed5fe36b17fd90b1aead6147ae0f3b0fd7e7ec571"
+    },
+    {
       "path": "CHANGELOG.md",
-      "bytes": 917,
-      "sha256": "b9d7afe30ab9dc95b7b5ea455e66b423d324e49c565a190a73ef9cee1e599386"
+      "bytes": 1514,
+      "sha256": "d960c6332faa9a99c8161554a666898698ee2b504f597bd91de2affdbd5200f9"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -38,8 +43,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4275,
-      "sha256": "5463ec0deb7a67d1757019c3e9592b112546907f3e2ed4516e1d0ed153f74115"
+      "bytes": 4039,
+      "sha256": "1a426fd7074841e546ad55a4c10f59c8312a299c6c333d1352fbd383f5c8c201"
     },
     {
       "path": "THIRD_PARTY.md",
@@ -49,7 +54,7 @@
     {
       "path": "VERSION",
       "bytes": 6,
-      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03"
+      "sha256": "44e161e4495cac2cf7858043e9e6418e9579f0ddcfae826f9a372622968ce066"
     },
     {
       "path": "decompilation/c9acf0c46954/extra-function-entries.txt",
@@ -62,14 +67,19 @@
       "sha256": "553496156c548432685b34ac4e72b00b317082999cec15778771d2bca35f2915"
     },
     {
+      "path": "docs/AGENT_SETUP.md",
+      "bytes": 4821,
+      "sha256": "414fb89630a20b63d67e702c25d5dd1af50c5aa4eb656dfbf285e0a4ec81a927"
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "bytes": 1118,
       "sha256": "0c5bf27f5a645c4ee481ded72b5f78d2459653ae1f4667ef7230dd974ca9cb51"
     },
     {
       "path": "docs/BUILDING.md",
-      "bytes": 6403,
-      "sha256": "d9c47e74e04fd3ca092270427b26bab6293514b9c84bfa9c179ff768d04a46c5"
+      "bytes": 7055,
+      "sha256": "68f5e84bf20428be191af55f85ed55238984777b0ac970bb69cfc428fb0adfe8"
     },
     {
       "path": "docs/CONTROLS.md",
@@ -87,9 +97,14 @@
       "sha256": "dd9adc048c2b94fa1617cbdd79e507a1ed2dc74d4fed287b42e748af5fb448e8"
     },
     {
+      "path": "docs/SETUP.md",
+      "bytes": 8567,
+      "sha256": "14f021c43e60023dae9dc862a95f0259e234ece73b47f011ebd3d5f32cd6609d"
+    },
+    {
       "path": "docs/VALIDATION.md",
-      "bytes": 3155,
-      "sha256": "ffafb6fb1685e9b72be5b9a913c0011517affa0f70f075dfab941bb38cf884dd"
+      "bytes": 4638,
+      "sha256": "50a198fcf74b36672aabf634756cd67f69610afe57f37ede322b26085d7d19fb"
     },
     {
       "path": "native/EngineHost/Makefile",
@@ -1423,8 +1438,8 @@
     },
     {
       "path": "native/EngineVision/project.yml",
-      "bytes": 4133,
-      "sha256": "9967ed8d3f28e79b31afdf444960d3829e72d1554d6b097425ccbefb2383e242"
+      "bytes": 4462,
+      "sha256": "0725c5cbce157b09406d1ab56116ae637ff1cb4d88bf18e75097eabfc83b2a8a"
     },
     {
       "path": "native/Tests/EngineRuntimeContract.c",
@@ -1435,6 +1450,11 @@
       "path": "requirements-development.txt",
       "bytes": 127,
       "sha256": "54e055d05834040438aa7f2541bd42b34a71c317f95d8e73eb008e53f6b18bf1"
+    },
+    {
+      "path": "setup.sh",
+      "bytes": 523,
+      "sha256": "56edc9e3df1ad2d29fce8b419998e3968c72a50b7634319277652697b632ed30"
     },
     {
       "path": "third_party/mojoshader/GL/gl.h",
@@ -1639,7 +1659,7 @@
     {
       "path": "tools/build_engine_vision.py",
       "bytes": 15655,
-      "sha256": "60d8ae2af393ac2f722cbaee17ab098cb169eeb276cfb853ca92fd892fe6f1f8"
+      "sha256": "d4cf0e52038a0491a9297604760d3f0007773cd1e24d1ea291ae93193c5d3400"
     },
     {
       "path": "tools/check_core_telemetry_xros.py",
@@ -1653,8 +1673,8 @@
     },
     {
       "path": "tools/check_repository_hygiene.py",
-      "bytes": 2936,
-      "sha256": "3ba080a6443f06044d7599fe520510613f29e2329569e21132bdcdfa2bd150e8"
+      "bytes": 2963,
+      "sha256": "b9c422e20e050c92bb533f5d57c4803f347e707617954e6d45cf980b589c30b8"
     },
     {
       "path": "tools/engine_reuse/decode.py",
@@ -1722,6 +1742,11 @@
       "sha256": "916f533811c2b218b1e54feeb6c9555f9b8f3cc40f5c7dcf480e1063363879dc"
     },
     {
+      "path": "tools/halo_setup_registry.py",
+      "bytes": 5440,
+      "sha256": "d02b0450a82f957c6ae2b703cb3c56c54c76459a28fa56e2cedab460c3b80222"
+    },
+    {
       "path": "tools/import_texmod_pack.py",
       "bytes": 6246,
       "sha256": "ed3c4b34d32d9c663a22c37e1125048345394623224f36eeb19a2892ef328d31"
@@ -1743,8 +1768,13 @@
     },
     {
       "path": "tools/run_source_checks.py",
-      "bytes": 20068,
-      "sha256": "e56dbeb882ad60af5b82180e6287ad21f6823211e87b359afc38aa1d552fe8fd"
+      "bytes": 20129,
+      "sha256": "2be0384ff5845e44f74032d52ff0d2e258c6a9fab6dfc213344bab394b3d9840"
+    },
+    {
+      "path": "tools/setup_halo.py",
+      "bytes": 29686,
+      "sha256": "fc3d3aeeb58e5151269d38389fa453de2fc31fa1f338a4184a74d81426bde64c"
     },
     {
       "path": "tools/test_engine_vision_report_summary.py",
@@ -1755,6 +1785,11 @@
       "path": "tools/test_hd_texture_merge.py",
       "bytes": 4971,
       "sha256": "f9bc3f3bda9b4b20c4c083a1bf9ed3f296c544cab3ee1c803682a37dad7b9ffe"
+    },
+    {
+      "path": "tools/test_setup_halo.py",
+      "bytes": 11916,
+      "sha256": "e31119fabb488fb698bb780e1eb27fbc28e1bfa161fbd1ff195cfdb445447bc8"
     },
     {
       "path": "tools/test_texmod_import.py",

@@ -1,6 +1,8 @@
 # Local build products and owned data
 .DS_Store
 .context/
+/.setup/
+*.reg
 .env
 .env.*
 !.env.example

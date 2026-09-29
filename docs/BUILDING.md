@@ -1,5 +1,10 @@
 # Building and installing
 
+For the easiest route, use [the guided ISO setup](SETUP.md):
+`./setup.sh "/path/to/HALO.iso"`. [Agent-specific instructions](AGENT_SETUP.md)
+include a copy/paste prompt. The manual steps below remain available for
+existing installations and explicit signing workflows.
+
 ## Requirements
 
 - An Apple Silicon Mac, Xcode with the visionOS SDK, and command-line tools.
@@ -23,8 +28,9 @@ python -m pip install -r requirements-development.txt
 ## Supply the executable
 
 Start with your own installed Halo PC copy, obtained from your disc or ISO
-using your valid product key. An ISO is installation media; neither the app
-nor these build tools load it directly. Preparing the retail PC 1.10
+using your valid product key. An ISO is installation media; the app does not load it directly.
+`setup.sh` can mount it and guide the original installer, or you can supply
+an existing installation for the manual steps here. Preparing the retail PC 1.10
 installation is a prerequisite to the source-generation steps below.
 
 Generation supports the executable with SHA-256:
@@ -38,7 +44,8 @@ Put your own matching executable at `game/halo.exe` and verify the digest with
 path of your executable and use `shasum -a 256 "$HALO_EXE"`. The `game`
 directory is ignored. Address lists are specific to that executable;
 Halo Custom Edition, Anniversary, and other builds are not interchangeable.
-The repository does not download or patch game files.
+The manual generation tools do not download or patch game files.
+The setup wizard can run your locally supplied retail PC update installer.
 
 ## Generate native engine sources
 
@@ -71,7 +78,10 @@ python tools/build_engine_vision.py --configuration Release --direct --clean
 ```
 
 The output is `native/EngineVision/.build/DirectXROS/HaloVision.app`.
-It contains no game data and is not yet signed for a headset.
+This direct build command does not add game data and is not yet signed for a
+headset. The guided setup separately stages a private payload; Xcode includes
+that payload when present, and `setup.sh --stage build` adds it to the unsigned
+app explicitly.
 
 To generate an editable Xcode project:
 
@@ -84,7 +94,7 @@ Set the application's bundle identifier to one you control, select your
 team, and enable automatic signing in Xcode. The public default,
 `org.example.halovision`, is a placeholder. The CLI normally performs unsigned
 builds; an Xcode development run supplies a profile for your account.
-The project version is 1.0.0 (build 100). The public source omits the old
+The project version is 1.0.1 (build 101). The public source omits the old
 screenshot-derived app icon; add your own artwork for distribution.
 
 ## Supply game data and sign locally
