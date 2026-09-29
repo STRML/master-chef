@@ -1,0 +1,4 @@
+module HaloEngineRuntime {
+    header "engine_runtime.h"
+    export *
+}

@@ -1,0 +1,6 @@
+# Development dependencies; see docs/BUILDING.md.
+capstone==5.0.6
+pefile==2024.8.26
+numpy==2.4.2
+Pillow==11.3.0
+unicorn==2.1.4

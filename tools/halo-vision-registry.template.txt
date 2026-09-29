@@ -1,0 +1,15 @@
+HKLM|Software\Microsoft\Microsoft Games\Halo|CDPath|1|Z:\Volumes\CDROM\
+HKLM|Software\Microsoft\Microsoft Games\Halo|DigitalProductID|3|<hex bytes of your DigitalProductID value>
+HKLM|Software\Microsoft\Microsoft Games\Halo|DistID|4|860
+HKLM|Software\Microsoft\Microsoft Games\Halo|EXE Path|1|C:\Program Files (x86)\Microsoft Games\Halo
+HKLM|Software\Microsoft\Microsoft Games\Halo|InstalledGroup|1|1
+HKLM|Software\Microsoft\Microsoft Games\Halo|LangID|4|9
+HKLM|Software\Microsoft\Microsoft Games\Halo|Launched|1|1
+HKLM|Software\Microsoft\Microsoft Games\Halo|PendingVersion|1|
+HKLM|Software\Microsoft\Microsoft Games\Halo|PID|1|<your product id, e.g. 12345-678-1234567-12345>
+HKLM|Software\Microsoft\Microsoft Games\Halo|Version|1|1.10
+HKLM|Software\Microsoft\Microsoft Games\Halo|VersionType|1|RetailVersion
+HKCU|Software\Microsoft\Microsoft Games\Halo|default|1|0
+HKCU|Software\Microsoft\Microsoft Games\Halo|ExitFlag|1|clean
+HKCU|Software\Microsoft\Microsoft Games\Halo|FIRSTRUN|4|1
+HKCU|Software\Microsoft\Microsoft Games\Halo|gamma|4|1

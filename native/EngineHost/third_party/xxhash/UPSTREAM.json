@@ -1,0 +1,14 @@
+{
+  "version": "v0.8.3",
+  "source": "https://raw.githubusercontent.com/Cyan4973/xxHash/v0.8.3/",
+  "files": {
+    "xxhash.h": {
+      "bytes": 268319,
+      "sha256": "17973c0dc49d9854ca26caa191f0e12f7a424b68858d9a78de3860d959d85e4b"
+    },
+    "LICENSE": {
+      "bytes": 1389,
+      "sha256": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a"
+    }
+  }
+}

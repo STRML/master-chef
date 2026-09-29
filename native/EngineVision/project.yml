@@ -1,0 +1,91 @@
+name: EngineVision
+options:
+  bundleIdPrefix: org.example.halovision
+  deploymentTarget:
+    visionOS: "26.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    SWIFT_STRICT_CONCURRENCY: minimal
+    CODE_SIGNING_ALLOWED: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    CLANG_ENABLE_MODULES: YES
+    GCC_OPTIMIZATION_LEVEL: "0"
+    COMPILER_INDEX_STORE_ENABLE: NO
+  configs:
+    Release:
+      GCC_OPTIMIZATION_LEVEL: "2"
+targets:
+  EngineVision:
+    type: application
+    platform: visionOS
+    sources:
+      - path: Sources
+      - path: Resources/ThirdPartyNotices.txt
+        buildPhase: resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+      - path: ../EngineHost/host.c
+      - path: ../EngineHost/shims_kernel32.c
+      - path: ../EngineHost/shims_misc.c
+      - path: ../EngineHost/directsound.c
+      - path: ../EngineHost/directsound_mixer.c
+      - path: ../EngineHost/haptics.c
+      - path: ../EngineHost/halo_settings.c
+      - path: ../EngineHost/pointer.c
+      - path: ../EngineHost/vorbis_shim.c
+      - path: ../EngineHost/d3d9.c
+      - path: ../EngineHost/texture_decode.c
+      - path: ../EngineHost/metalshader.c
+      - path: ../../third_party/mojoshader/mojoshader.c
+      - path: ../../third_party/mojoshader/mojoshader_common.c
+      - path: ../../third_party/mojoshader/profiles/mojoshader_profile_common.c
+      - path: ../../third_party/mojoshader/profiles/mojoshader_profile_metal.c
+      - path: ../EngineHost/dinput8.c
+      - path: ../EngineHost/ddraw.c
+      - path: ../EngineHost/resources.c
+      - path: ../EngineHost/overrides.c
+      - path: ../EngineHost/gamecontroller.m
+      - path: ../EngineHost/threading.c
+      - path: ../EngineHost/metalrenderer.m
+      - path: ../build/engine-reuse/whole-exe
+        includes:
+          - "chunk_*.c"
+          - engine_bundle.c
+          - engine_imports.c
+    dependencies:
+      - sdk: Foundation.framework
+      - sdk: SwiftUI.framework
+      - sdk: UIKit.framework
+      - sdk: Metal.framework
+      - sdk: MetalKit.framework
+      - sdk: QuartzCore.framework
+      - sdk: CompositorServices.framework
+      - sdk: ARKit.framework
+      - sdk: CoreHaptics.framework
+      - sdk: GameController.framework
+      - sdk: AudioToolbox.framework
+      - sdk: AVFAudio.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.example.halovision
+        PRODUCT_NAME: HaloVision
+        PRODUCT_MODULE_NAME: EngineVision
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Halo Vision
+        INFOPLIST_KEY_GCSupportsControllerUserInteraction: YES
+        INFOPLIST_KEY_NSHandsTrackingUsageDescription: A pinch chooses the menu item you are looking at; hands are never recorded.
+        INFOPLIST_KEY_NSWorldSensingUsageDescription: Head tracking keeps the curved original-engine screen aligned with your chosen reclined pose; aiming remains on the controller.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationPreferredDefaultSceneSessionRole: CPSceneSessionRoleImmersiveSpaceApplication
+        TARGETED_DEVICE_FAMILY: "7"
+        CURRENT_PROJECT_VERSION: "100"
+        MARKETING_VERSION: "1.0.0"
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/EngineVision-Bridging-Header.h
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/Sources $(SRCROOT)/../../third_party/mojoshader $(SRCROOT)/../EngineHost $(SRCROOT)/../EngineReuse $(SRCROOT)/../build/engine-reuse/whole-exe"
+        OTHER_CFLAGS: "$(inherited) -frounding-math -ffp-contract=off -DENGINE_FLAT_MEMORY=1 -DHALO_ARM64_FENV_FAST=1 -DMOJOSHADER_NO_VERSION_INCLUDE=1 -DSUPPORT_PROFILE_D3D=0 -DSUPPORT_PROFILE_BYTECODE=0 -DSUPPORT_PROFILE_HLSL=0 -DSUPPORT_PROFILE_GLSL120=0 -DSUPPORT_PROFILE_GLSLES=0 -DSUPPORT_PROFILE_GLSLES3=0 -DSUPPORT_PROFILE_GLSL=0 -DSUPPORT_PROFILE_ARB1=0 -DSUPPORT_PROFILE_ARB1_NV=0 -DSUPPORT_PROFILE_SPIRV=0 -DSUPPORT_PROFILE_GLSPIRV=0 -frounding-math -ffp-contract=off"
+        OTHER_LDFLAGS: "$(inherited) -lm"
+    scheme:
+      gatherCoverageData: false
