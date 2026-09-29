@@ -1,5 +1,52 @@
 # Source-release validation
 
+## 1.0.2 rendering and audio recovery update
+
+Validated on an Apple Silicon Mac:
+
+- Full source suite: 59 C checks plus Objective-C, Metal, Swift and Python
+  checks passed. The portable subset also passed normally and with ASan/UBSan
+  (32 C checks). Optional comparisons requiring generated engine code were
+  skipped in the public checkout.
+- Real-Metal regressions reproduced the previous sampler/depth cache failures
+  and the rejected mixed texture address modes. The fixes passed 768 sampler
+  requests and 192 depth/stencil states, including actual queued draws beyond
+  both cache capacities. Cache storage remained bounded.
+- All 25 U/V address combinations passed nine out-of-bounds pixel comparisons
+  with each renderer path: 450 exact GPU pixel checks. Nonzero border colors
+  remain unsupported.
+- The production audio coordinator passed injected activation, rebuild and
+  queue-start failures, two-second retry timing, background/interruption
+  suppression, denied resume permission and stopped-runtime checks. The old
+  coordinator reproduced the permanent-suspension failure. The new renderer
+  and audio tests also passed focused ASan/UBSan runs. Audio framework calls
+  in this lifecycle test are mocked; this is not an audible-output test.
+- All 24 setup regressions and four documentation-art hygiene regressions
+  passed. The reviewed header requires an exact path and SHA-256 match.
+
+The corresponding owner Build91 was compiled from a frozen private snapshot
+with fresh objects: 59 native units, 32 translated chunks and 24 Swift sources.
+Signing and the complete local game-payload manifest passed. That bundle is
+private. The public source app uses version 1.0.2/build 102, a separate build
+number series, and requires the user's game files and signing.
+
+Desktop entry probes for Halo (a30) and The Maw (d40) each completed 2,400 frames
+with scripted controller turns and normal audio mixing enabled. All ten
+captured GPU layers were reviewed for each scene. Median measured entry-scene
+rates were 29.78 and 29.86 FPS respectively. These short desktop probes do not
+measure firefights, full missions, audible output or headset performance, and
+do not establish an improvement over an equivalent baseline.
+
+The owner headset's developer service was unreachable during the initial
+installation attempt. Build91 installation, launch and headset gameplay have
+not been validated for this source release. Known panorama, combat-performance
+and audio limitations remain documented in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+
+CI now targets macOS because the host fixtures depend on Mach APIs and Apple's
+linker. The local passes above are not hosted CI results; previous hosted runs
+were blocked by the account's billing status. Source publication and device
+acceptance remain separate gates.
+
 ## 1.0.1 setup update
 
 - Passed 24 synthetic setup regressions: Windows/Wine registry parsing,

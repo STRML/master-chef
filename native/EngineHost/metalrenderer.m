@@ -87,12 +87,14 @@ typedef struct mr_depth_stencil_cache {
     int depth_enable, depth_compare, depth_write;
     int stencil_enable, stencil_fail, stencil_depth_fail, stencil_pass, stencil_compare;
     uint32_t stencil_read_mask, stencil_write_mask;
+    uint64_t last_use;
     id<MTLDepthStencilState> state;
 } mr_depth_stencil_cache;
 
 typedef struct mr_sampler_cache {
-    uint8_t address, min_filter, mag_filter, mip_filter;
+    uint8_t address_u, address_v, min_filter, mag_filter, mip_filter;
     uint8_t max_anisotropy, max_mip_level;
+    uint64_t last_use;
     id<MTLSamplerState> state;
 } mr_sampler_cache;
 
@@ -121,6 +123,7 @@ typedef struct mr_shared {
     id<MTLSamplerState> samplers[4];         /* bit0 linear, bit1 clamp */
     mr_sampler_cache program_samplers[MR_MAX_PROGRAM_SAMPLERS];
     uint32_t program_sampler_count;
+    uint64_t state_tick;                    /* engine-thread state-cache LRU */
     id<MTLTexture> white;
     id<MTLTexture> black2d, blackcube, black3d;   /* D3D samples an unbound stage as opaque black */
     id<MTLTexture> textures[MR_MAX_TEX];
@@ -2487,19 +2490,28 @@ static id<MTLDepthStencilState> depth_stencil_state_for(mr_context *c,
     @autoreleasepool {
     if(!depth_enable){depth_compare=8;depth_write=0;}if(depth_compare<1||depth_compare>8){g_err="invalid D3D depth comparison";return nil;}
     if(stencil_enable&&((stencil_fail<1||stencil_fail>8)||(stencil_depth_fail<1||stencil_depth_fail>8)||(stencil_pass<1||stencil_pass>8)||(stencil_compare<1||stencil_compare>8))){g_err="invalid D3D stencil state";return nil;}
+    /* Inactive stencil fields do not change the descriptor. Avoid filling the
+     * cache with equivalent states as materials leave different values behind. */
+    if(!stencil_enable){stencil_fail=stencil_depth_fail=stencil_pass=1;stencil_compare=8;stencil_read_mask=stencil_write_mask=255;}
     for(uint32_t i=0;i<c->s->depth_stencil_count;i++){mr_depth_stencil_cache *v=&c->s->depth_stencil_states[i];
         if(v->depth_enable==!!depth_enable&&v->depth_compare==depth_compare&&v->depth_write==!!depth_write&&v->stencil_enable==!!stencil_enable&&
            v->stencil_fail==stencil_fail&&v->stencil_depth_fail==stencil_depth_fail&&v->stencil_pass==stencil_pass&&v->stencil_compare==stencil_compare&&
-           v->stencil_read_mask==(stencil_read_mask&255u)&&v->stencil_write_mask==(stencil_write_mask&255u))return v->state;}
-    if(c->s->depth_stencil_count==64){g_err="depth/stencil state cache is full";return nil;}
+           v->stencil_read_mask==(stencil_read_mask&255u)&&v->stencil_write_mask==(stencil_write_mask&255u)){v->last_use=++c->s->state_tick;return v->state;}}
     const MTLCompareFunction functions[9]={MTLCompareFunctionAlways,MTLCompareFunctionNever,MTLCompareFunctionLess,MTLCompareFunctionEqual,MTLCompareFunctionLessEqual,MTLCompareFunctionGreater,MTLCompareFunctionNotEqual,MTLCompareFunctionGreaterEqual,MTLCompareFunctionAlways};
     const MTLStencilOperation operations[9]={MTLStencilOperationKeep,MTLStencilOperationKeep,MTLStencilOperationZero,MTLStencilOperationReplace,MTLStencilOperationIncrementClamp,MTLStencilOperationDecrementClamp,MTLStencilOperationInvert,MTLStencilOperationIncrementWrap,MTLStencilOperationDecrementWrap};
     MTLDepthStencilDescriptor *descriptor=[[MTLDepthStencilDescriptor alloc]init];descriptor.depthCompareFunction=functions[depth_compare];descriptor.depthWriteEnabled=!!depth_write;
     if(stencil_enable){MTLStencilDescriptor *stencil=[[MTLStencilDescriptor alloc]init];stencil.stencilCompareFunction=functions[stencil_compare];stencil.stencilFailureOperation=operations[stencil_fail];stencil.depthFailureOperation=operations[stencil_depth_fail];stencil.depthStencilPassOperation=operations[stencil_pass];stencil.readMask=stencil_read_mask&255u;stencil.writeMask=stencil_write_mask&255u;descriptor.frontFaceStencil=stencil;descriptor.backFaceStencil=stencil;}
-    mr_depth_stencil_cache *slot=&c->s->depth_stencil_states[c->s->depth_stencil_count++];slot->depth_enable=!!depth_enable;slot->depth_compare=depth_compare;slot->depth_write=!!depth_write;
+    id<MTLDepthStencilState> state=[c->s->dev newDepthStencilStateWithDescriptor:descriptor];
+    if(!state){g_err="depth/stencil state allocation failed";return nil;}
+    uint32_t pick=c->s->depth_stencil_count;
+    if(pick<64)c->s->depth_stencil_count++;
+    else{pick=0;for(uint32_t i=1;i<64;i++)if(c->s->depth_stencil_states[i].last_use<c->s->depth_stencil_states[pick].last_use)pick=i;}
+    /* Encoders and the bound-state record retain previously used Metal
+     * objects. Replacing a cache reference cannot alter already queued draws. */
+    mr_depth_stencil_cache *slot=&c->s->depth_stencil_states[pick];slot->depth_enable=!!depth_enable;slot->depth_compare=depth_compare;slot->depth_write=!!depth_write;
     slot->stencil_enable=!!stencil_enable;slot->stencil_fail=stencil_fail;slot->stencil_depth_fail=stencil_depth_fail;slot->stencil_pass=stencil_pass;slot->stencil_compare=stencil_compare;
-    slot->stencil_read_mask=stencil_read_mask&255u;slot->stencil_write_mask=stencil_write_mask&255u;slot->state=[c->s->dev newDepthStencilStateWithDescriptor:descriptor];
-    if(!slot->state)g_err="depth/stencil state allocation failed";return slot->state;
+    slot->stencil_read_mask=stencil_read_mask&255u;slot->stencil_write_mask=stencil_write_mask&255u;slot->state=state;slot->last_use=++c->s->state_tick;
+    return state;
     }
 }
 
@@ -2532,8 +2544,8 @@ static id<MTLSamplerState> sampler_for(mr_context *c, const mr_program_sampler *
     @autoreleasepool {
     if (sampler->type != MR_SAMPLER_2D && sampler->type != MR_SAMPLER_CUBE && sampler->type != MR_SAMPLER_VOLUME) { g_err = "unknown sampler type"; return nil; }
     int au = sampler->address_u ? sampler->address_u : 1, av = sampler->address_v ? sampler->address_v : 1;
-    if (au != av || (au != 1 && au != 3 && au != 4)) { g_err = "only matching wrap/clamp/border U/V addressing is supported"; return nil; }
-    if (au == 4 && sampler->border_color != 0) { g_err = "nonzero texture border color is unsupported"; return nil; }
+    if (au < 1 || au > 5 || av < 1 || av > 5) { g_err = "unknown texture addressing mode"; return nil; }
+    if ((au == 4 || av == 4) && sampler->border_color != 0) { g_err = "nonzero texture border color is unsupported"; return nil; }
     uint8_t min_filter = sampler->min_filter ? sampler->min_filter : (sampler->linear_filter ? 2 : 1);
     uint8_t mag_filter = sampler->mag_filter ? sampler->mag_filter : (sampler->linear_filter ? 2 : 1);
     uint8_t mip_filter = sampler->mip_filter;
@@ -2549,30 +2561,34 @@ static id<MTLSamplerState> sampler_for(mr_context *c, const mr_program_sampler *
      * becomes 8x anisotropic trilinear unless HALO_NO_ANISO is set (16x at
      * 2560x1920 was part of what made Build30 GPU-bound on the headset). */
     if (!mr_no_aniso() && mip_filter != 0 && min_filter != 1) { max_anisotropy = 8; mip_filter = 2; }
-    uint8_t address = (uint8_t)au;
     for (uint32_t i = 0; i < c->s->program_sampler_count; ++i) {
         mr_sampler_cache *entry = &c->s->program_samplers[i];
-        if (entry->address == address && entry->min_filter == min_filter && entry->mag_filter == mag_filter &&
+        if (entry->address_u == au && entry->address_v == av && entry->min_filter == min_filter && entry->mag_filter == mag_filter &&
             entry->mip_filter == mip_filter && entry->max_anisotropy == max_anisotropy &&
-            entry->max_mip_level == sampler->max_mip_level) return entry->state;
+            entry->max_mip_level == sampler->max_mip_level) { entry->last_use=++c->s->state_tick; return entry->state; }
     }
-    if (c->s->program_sampler_count >= MR_MAX_PROGRAM_SAMPLERS) { g_err = "sampler cache full"; return nil; }
     MTLSamplerDescriptor *descriptor = [[MTLSamplerDescriptor alloc] init];
     descriptor.minFilter = min_filter == 1 ? MTLSamplerMinMagFilterNearest : MTLSamplerMinMagFilterLinear;
     descriptor.magFilter = mag_filter == 1 ? MTLSamplerMinMagFilterNearest : MTLSamplerMinMagFilterLinear;
     descriptor.mipFilter = mip_filter == 0 ? MTLSamplerMipFilterNotMipmapped :
                            (mip_filter == 1 ? MTLSamplerMipFilterNearest : MTLSamplerMipFilterLinear);
-    descriptor.sAddressMode = descriptor.tAddressMode = descriptor.rAddressMode =
-        address == 4 ? MTLSamplerAddressModeClampToZero :
-        (address == 3 ? MTLSamplerAddressModeClampToEdge : MTLSamplerAddressModeRepeat);
+    const MTLSamplerAddressMode addresses[6] = {MTLSamplerAddressModeRepeat,
+        MTLSamplerAddressModeRepeat, MTLSamplerAddressModeMirrorRepeat,
+        MTLSamplerAddressModeClampToEdge, MTLSamplerAddressModeClampToZero,
+        MTLSamplerAddressModeMirrorClampToEdge};
+    descriptor.sAddressMode = descriptor.rAddressMode = addresses[au];
+    descriptor.tAddressMode = addresses[av];
     descriptor.maxAnisotropy = max_anisotropy;
     descriptor.lodMinClamp = sampler->max_mip_level;
     id<MTLSamplerState> state = [c->s->dev newSamplerStateWithDescriptor:descriptor];
     if (!state) { g_err = "sampler allocation failed"; return nil; }
-    mr_sampler_cache *entry = &c->s->program_samplers[c->s->program_sampler_count++];
-    entry->address = address; entry->min_filter = min_filter; entry->mag_filter = mag_filter;
+    uint32_t pick=c->s->program_sampler_count;
+    if(pick<MR_MAX_PROGRAM_SAMPLERS)c->s->program_sampler_count++;
+    else{pick=0;for(uint32_t i=1;i<MR_MAX_PROGRAM_SAMPLERS;i++)if(c->s->program_samplers[i].last_use<c->s->program_samplers[pick].last_use)pick=i;}
+    mr_sampler_cache *entry = &c->s->program_samplers[pick];
+    entry->address_u = au; entry->address_v = av; entry->min_filter = min_filter; entry->mag_filter = mag_filter;
     entry->mip_filter = mip_filter; entry->max_anisotropy = max_anisotropy;
-    entry->max_mip_level = sampler->max_mip_level; entry->state = state;
+    entry->max_mip_level = sampler->max_mip_level; entry->state = state; entry->last_use=++c->s->state_tick;
     return state;
     }
 }

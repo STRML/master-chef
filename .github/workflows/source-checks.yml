@@ -7,7 +7,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   portable:
-    runs-on: ubuntu-latest
+    # The host-backed C fixtures use Mach APIs and Apple's linker even in the
+    # subset that skips the GPU/visionOS checks. Use the supported host OS.
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

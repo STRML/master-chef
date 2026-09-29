@@ -98,7 +98,7 @@ typedef struct mr_program_sampler {
     uint32_t texture;                   /* mr_texture_create id, 0 = unbound */
     uint8_t type;                       /* enum mr_sampler_type */
     uint8_t linear_filter;              /* legacy fallback when min/mag are zero */
-    uint8_t address_u;                  /* D3DTADDRESS_*: wrap, clamp, transparent-black border */
+    uint8_t address_u;                  /* D3DTADDRESS_* 1..5; border requires transparent black */
     uint8_t address_v;
     uint8_t min_filter;                 /* D3DTEXF_*: point, linear, anisotropic */
     uint8_t mag_filter;                 /* D3DTEXF_*: point, linear, anisotropic */

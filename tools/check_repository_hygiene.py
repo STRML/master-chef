@@ -5,12 +5,18 @@ Use --strict for a distribution tree, including normally ignored artifacts.
 This is a layered guard, not a guarantee that every possible secret is detected.
 """
 import argparse
+import hashlib
 from pathlib import Path
 import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SKIP = {'.git', '.build', '.setup', '__pycache__', '.venv', 'game', 'build', 'logs', 'dist', 'DerivedData'}
+# Explicitly reviewed generated documentation art, never a general binary
+# allowlist. Changing this image requires reviewing and updating its digest.
+DOCUMENTATION_ART = {
+    'docs/assets/master-chef-header.png': '93434569597096205b9d213172e8e395195bb3d803bfc27cae0e5e6d37e95139',
+}
 BAD_SUFFIX = {'.exe', '.dll', '.map', '.iso', '.ipa', '.p12', '.p8', '.pfx', '.pem', '.key',
               '.mobileprovision', '.provisionprofile', '.o', '.a', '.dylib', '.so', '.pyc',
               '.zip', '.tpf', '.hvt', '.hvs', '.bgra', '.mov', '.mp4', '.jsonl', '.log', '.reg'}
@@ -37,6 +43,11 @@ def audit(root, strict=False):
             or any(part.endswith(('.app','.xcarchive','.dSYM')) for part in rel.parts)
             or any(part in {'assessment','local-agent-inputs','.context','.claude','.setup'} for part in rel.parts)):
             failures.append((str(rel),0,'non-source-artifact'))
+        if rel.as_posix() in DOCUMENTATION_ART:
+            data=p.read_bytes()
+            if not data.startswith(b'\x89PNG\r\n\x1a\n') or hashlib.sha256(data).hexdigest()!=DOCUMENTATION_ART[rel.as_posix()]:
+                failures.append((str(rel),0,'unreviewed-documentation-art'))
+            continue
         try:text=p.read_text(encoding='utf-8')
         except UnicodeError:
             failures.append((str(rel),0,'binary-file'));continue

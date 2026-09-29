@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.2
+
+- Supports independent U/V texture addressing, mirrored repetition and mirrored
+  clamping instead of rejecting those draws.
+- Reuses bounded sampler and depth/stencil caches under pressure instead of
+  permanently refusing new material states. Inactive stencil settings share
+  one cache entry; failed state allocations remain retryable.
+- Retries failed foreground audio activation, queue rebuilds and queue starts
+  every two seconds. Recovery respects backgrounding, interruptions, denied
+  resume permission and stopped runtime state.
+- Adds real-Metal pixel and cache-pressure regressions plus deterministic audio
+  lifecycle failure tests.
+- Adds the generated Master Chef header, refreshed release documentation and
+  a checksum-restricted documentation artwork exception in the hygiene audit.
+- Runs source CI on macOS, matching the Mach APIs and Apple linker used by
+  host fixtures. Probe freshness checks now include implementation includes.
+
+These fixes are shared with the owner Build91. They do not establish stable
+FPS, uninterrupted audible playback or a complete campaign playthrough.
+
 ## 1.0.1
 
 - Adds `setup.sh` for guided retail ISO installation, existing-install imports,

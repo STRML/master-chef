@@ -1,15 +1,15 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "license": "MIT for original project code; third-party notices retained",
   "formatVersion": 1,
-  "scope": "Source files only. No game payload, generated engine, signing material, binaries or private Git history.",
-  "fileCount": 360,
-  "totalBytes": 5795233,
+  "scope": "Source, documentation and reviewed generated header artwork. No game payload, generated engine, signing material, executable binaries or private Git history.",
+  "fileCount": 366,
+  "totalBytes": 8048587,
   "files": [
     {
       "path": ".github/workflows/source-checks.yml",
-      "bytes": 581,
-      "sha256": "937ec5dbdfa302dd4b1acd30e3dd32f71be5d89ccb649a5395792abcab208490"
+      "bytes": 730,
+      "sha256": "5af45460d242b020c10f4bf430c8214e1c9ea7eaf380c7f00e97497951c6e273"
     },
     {
       "path": ".gitignore",
@@ -28,8 +28,8 @@
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 1514,
-      "sha256": "d960c6332faa9a99c8161554a666898698ee2b504f597bd91de2affdbd5200f9"
+      "bytes": 2628,
+      "sha256": "72420829749bc07b58a4881610a347d2e799ea7b7c1d4f7aa538fcd450f656d1"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -43,8 +43,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4039,
-      "sha256": "1a426fd7074841e546ad55a4c10f59c8312a299c6c333d1352fbd383f5c8c201"
+      "bytes": 4150,
+      "sha256": "4c02082d310cc3a93baf564fb3330e1ca4fa0c21b32cb80e7955c9985a82bf60"
     },
     {
       "path": "THIRD_PARTY.md",
@@ -54,7 +54,7 @@
     {
       "path": "VERSION",
       "bytes": 6,
-      "sha256": "44e161e4495cac2cf7858043e9e6418e9579f0ddcfae826f9a372622968ce066"
+      "sha256": "9fd28642d3aca191e5c7fc2383cfd6fabb2aac8743f029dabb8989ac584e31bc"
     },
     {
       "path": "decompilation/c9acf0c46954/extra-function-entries.txt",
@@ -93,8 +93,8 @@
     },
     {
       "path": "docs/RELEASING.md",
-      "bytes": 1004,
-      "sha256": "dd9adc048c2b94fa1617cbdd79e507a1ed2dc74d4fed287b42e748af5fb448e8"
+      "bytes": 1987,
+      "sha256": "a558fa2213e21e3789c71ec94b51c50067fae6f60894719d9c0c83436e44c763"
     },
     {
       "path": "docs/SETUP.md",
@@ -103,8 +103,18 @@
     },
     {
       "path": "docs/VALIDATION.md",
-      "bytes": 4638,
-      "sha256": "50a198fcf74b36672aabf634756cd67f69610afe57f37ede322b26085d7d19fb"
+      "bytes": 7449,
+      "sha256": "05848b31c4af1015630ba9e9b6992e5273bf3a05f2b63900876622318efcdac7"
+    },
+    {
+      "path": "docs/assets/README.md",
+      "bytes": 1435,
+      "sha256": "5279e264b88ad2c09e3067752409c66efcefac7cbaacdf5708cbfedc0659c1d7"
+    },
+    {
+      "path": "docs/assets/master-chef-header.png",
+      "bytes": 2231163,
+      "sha256": "93434569597096205b9d213172e8e395195bb3d803bfc27cae0e5e6d37e95139"
     },
     {
       "path": "native/EngineHost/Makefile",
@@ -283,13 +293,13 @@
     },
     {
       "path": "native/EngineHost/metalrenderer.h",
-      "bytes": 21061,
-      "sha256": "c82a445d0d097967d95bbf01e540d8e46e5e0c4cec74b82886c4056074517713"
+      "bytes": 21062,
+      "sha256": "48ba8516e645bd2dd272e82dd615759546294cafc74911b090267f28fdb03ac8"
     },
     {
       "path": "native/EngineHost/metalrenderer.m",
-      "bytes": 188438,
-      "sha256": "8e3c75e9a01ef7cac57bd52b377d424dd940bbfd22ff59c4bf8f82493690fc86"
+      "bytes": 189598,
+      "sha256": "3af6fef0b73570506f6cb07a92bf691311602fa55bdd0352154d2740ec195f1d"
     },
     {
       "path": "native/EngineHost/metalshader.c",
@@ -725,6 +735,11 @@
       "path": "native/EngineHost/tests/test_metalrenderer_pipeline_cache.m",
       "bytes": 17432,
       "sha256": "4040ca4fcccb6d5f0355aa10dfcbaa2facd01c6284e252e56e08229a48122f0a"
+    },
+    {
+      "path": "native/EngineHost/tests/test_metalrenderer_state_pressure.m",
+      "bytes": 4739,
+      "sha256": "16cf1d5a2be6963b63e84f97232ac8aadd66e0c6e6050120502558d2f212d035"
     },
     {
       "path": "native/EngineHost/tests/test_metalrenderer_texture_bindings.m",
@@ -1268,8 +1283,8 @@
     },
     {
       "path": "native/EngineVision/Sources/EngineVisionRuntime.m",
-      "bytes": 51477,
-      "sha256": "e5fe731539983f816b897dc732ab2c3ea235de5df13fe32d7708290f1556ca71"
+      "bytes": 44347,
+      "sha256": "82de9fefa32a3dd1f45de2cc9b7a5b4033a283c63e1f428659d86e15073710b4"
     },
     {
       "path": "native/EngineVision/Sources/EngineWorldCadence.swift",
@@ -1282,9 +1297,19 @@
       "sha256": "e8aab1e48ad88a9ab6da9c2a34296a8c16fd9436f855d890299a2ace0ba3d816"
     },
     {
+      "path": "native/EngineVision/Sources/audio_session.inc",
+      "bytes": 8115,
+      "sha256": "a6942e25908ec628f89acd7208bbd9d7660ac5fef7d1a4a19eb7f6c988451d85"
+    },
+    {
       "path": "native/EngineVision/Tests/AssetValidationMain.swift",
       "bytes": 520,
       "sha256": "e8bc4624d0b6ea7eab090bcc631c6f8dbe313b06b179e8653c2f2c6fbcf6aeb7"
+    },
+    {
+      "path": "native/EngineVision/Tests/AudioSessionRecoveryValidation.m",
+      "bytes": 5944,
+      "sha256": "029f5c5f44d516989e4da1d714ebf558e9610fde2167276d2bad22c27c8ec662"
     },
     {
       "path": "native/EngineVision/Tests/BundledAssetValidationMain.swift",
@@ -1439,7 +1464,7 @@
     {
       "path": "native/EngineVision/project.yml",
       "bytes": 4462,
-      "sha256": "0725c5cbce157b09406d1ab56116ae637ff1cb4d88bf18e75097eabfc83b2a8a"
+      "sha256": "b35fbb3caf2c4e28db4dea5b45eb1d9c911bfda1bb6f2ee662d596f0f9797cc1"
     },
     {
       "path": "native/Tests/EngineRuntimeContract.c",
@@ -1659,7 +1684,7 @@
     {
       "path": "tools/build_engine_vision.py",
       "bytes": 15655,
-      "sha256": "d4cf0e52038a0491a9297604760d3f0007773cd1e24d1ea291ae93193c5d3400"
+      "sha256": "a44dfd0df2963d15bbf708c9dce58c9d2b8b266a9b534a50cdcaf0734b6c9e31"
     },
     {
       "path": "tools/check_core_telemetry_xros.py",
@@ -1673,8 +1698,8 @@
     },
     {
       "path": "tools/check_repository_hygiene.py",
-      "bytes": 2963,
-      "sha256": "b9c422e20e050c92bb533f5d57c4803f347e707617954e6d45cf980b589c30b8"
+      "bytes": 3570,
+      "sha256": "5f324040bdf6d95e353b791543020ab1a307b7f5ff0eb9763f34156f03965373"
     },
     {
       "path": "tools/engine_reuse/decode.py",
@@ -1763,13 +1788,13 @@
     },
     {
       "path": "tools/probe_engine_menu_input.py",
-      "bytes": 7374,
-      "sha256": "f473c00de526ecb7704169b12a812d4a32ac3fcb5a35861e76981242a47581cb"
+      "bytes": 7420,
+      "sha256": "4df9dc38bd9b4ac56601e6c3c330bc3f89d3801d629cac26302cc45a59c548a4"
     },
     {
       "path": "tools/run_source_checks.py",
-      "bytes": 20129,
-      "sha256": "2be0384ff5845e44f74032d52ff0d2e258c6a9fab6dfc213344bab394b3d9840"
+      "bytes": 20828,
+      "sha256": "7395ec3d2f9db96af52bf0a976a3d22f67a0d792336dcccb4f58124732807fb7"
     },
     {
       "path": "tools/setup_halo.py",
@@ -1785,6 +1810,11 @@
       "path": "tools/test_hd_texture_merge.py",
       "bytes": 4971,
       "sha256": "f9bc3f3bda9b4b20c4c083a1bf9ed3f296c544cab3ee1c803682a37dad7b9ffe"
+    },
+    {
+      "path": "tools/test_repository_hygiene.py",
+      "bytes": 1407,
+      "sha256": "fab3993466504639af9768537c069936762f68d0a152ef4b4d8db7ef708dfeec"
     },
     {
       "path": "tools/test_setup_halo.py",

@@ -38,6 +38,7 @@ def main():
     parser.add_argument('--sanitize', action='store_true')
     args = parser.parse_args()
     run([sys.executable, ROOT / 'tools/check_repository_hygiene.py'])
+    run([sys.executable, ROOT / 'tools/test_repository_hygiene.py'])
     run([sys.executable, ROOT / 'tools/check_probe_runner_exit.py'])
     run([sys.executable, ROOT / 'tools/test_setup_halo.py'])
     run([sys.executable, ROOT / 'tools/test_engine_vision_report_summary.py'])
@@ -195,6 +196,16 @@ def main():
             run([os.environ.get('CC', 'clang'), *flags, '-fobjc-arc', '-fblocks',
                  HOST / 'tests/test_metalrenderer_texture_bindings.m', '-framework', 'Foundation',
                  '-framework', 'Metal', '-o', binary])
+            run([binary])
+            binary = Path(temp) / 'metal-state-pressure'
+            run([os.environ.get('CC', 'clang'), *flags, '-fobjc-arc', '-fblocks',
+                 HOST / 'tests/test_metalrenderer_state_pressure.m', '-framework', 'Foundation',
+                 '-framework', 'Metal', '-o', binary])
+            run([binary])
+            binary = Path(temp) / 'audio-session-recovery'
+            run([os.environ.get('CC', 'clang'), *flags, '-fobjc-arc', '-fblocks',
+                 ROOT / 'native/EngineVision/Tests/AudioSessionRecoveryValidation.m',
+                 '-framework', 'Foundation', '-o', binary])
             run([binary])
             # Real Metal and MojoShader with synthetic shaders; two sessions in a temporary cache directory.
             binary = Path(temp) / 'metal-pipeline-cache'

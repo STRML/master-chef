@@ -31,7 +31,8 @@ else:
         ROOT/'native/EngineVision/Sources/EngineVisionRuntime.m',
         ROOT/'native/EngineVision/Tests/MenuInputProbe.m']
     for folder in ('native/EngineHost','native/EngineReuse','native/EngineVision/Sources'):
-        inputs.extend((ROOT/folder).glob('*.h'))
+        for pattern in ('*.h','*.inc'):
+            inputs.extend((ROOT/folder).glob(pattern))
     probe=base/'probe'
     if not probe.is_file() or any(not f.is_file() or f.stat().st_mtime_ns>probe.stat().st_mtime_ns for f in inputs):
         p.error('Probe is missing or older than its inputs. Run with --build to relink before collecting evidence.')

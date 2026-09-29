@@ -1,12 +1,14 @@
-# Halo Vision 1.0.1
+![master chef — Halo-style silver wordmark over a blue ringworld](docs/assets/master-chef-header.png)
+
+# Master Chef · Halo Vision 1.0.2
 
 An unofficial, native Apple Vision Pro port of Halo: Combat Evolved for PC.
 The project translates a user-supplied Halo PC executable into native code and
 provides a Metal renderer, Windows compatibility layer, controller input,
 audio, and an immersive visionOS presenter.
 
-This is the **v1.0.1 source release**, based on the current runtime development
-line. **You must supply your own Halo: Combat Evolved for PC retail disc or ISO
+This is the **v1.0.2 source release**, with the Build91 runtime fixes. This
+project requires **your own Halo: Combat Evolved for PC retail disc or ISO
 and a valid product key**, plus your own Apple signing setup for headset
 installation. No game executable, maps, textures, sounds, product keys, saves,
 or signed application are included.
