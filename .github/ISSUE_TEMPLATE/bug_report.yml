@@ -1,0 +1,66 @@
+name: Bug report or setup help
+description: Report a rendering, performance, audio, input, or installation problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [known issues](https://github.com/mitchaiet/master-chef/blob/main/docs/KNOWN_ISSUES.md)
+        and [setup guide](https://github.com/mitchaiet/master-chef/blob/main/docs/SETUP.md) first.
+        Never attach product keys, registry exports, saves, signing files, device identifiers,
+        or unreviewed diagnostic archives. Describe errors or attach short, redacted excerpts.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where is the problem?
+      options:
+        - Installation or build
+        - Graphics or panorama seams
+        - Performance or stuttering
+        - Audio
+        - Controller or haptics
+        - Crash or level loading
+        - Other gameplay issue
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Release and app version
+      description: Use the release tag and app version/build number, not a device identifier.
+      placeholder: "For example: v1.0.3 / build 103, or a source commit"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include visionOS and controller model. For setup issues, add macOS, Xcode version, setup route, and failed stage. Omit serial numbers and personal paths.
+      placeholder: "visionOS version; controller model; setup route if relevant"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the mission/checkpoint. For graphics issues, say whether it happens standing still, turning with the controller, or moving your head.
+      placeholder: |
+        1. Open ...
+        2. Load ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Describe what you expected and what happened. Include a short, redacted error or screenshot if helpful.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before posting
+      options:
+        - label: I checked the known issues and reviewed my text and attachments for private information.
+          required: true

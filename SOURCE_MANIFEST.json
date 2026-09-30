@@ -3,9 +3,19 @@
   "formatVersion": 1,
   "license": "MIT for original project code; third-party and asset notices retained",
   "scope": "Source, documentation, reviewed header and public asset/configuration manifests. Game and runtime packs are separate release assets.",
-  "fileCount": 372,
-  "totalBytes": 7784297,
+  "fileCount": 374,
+  "totalBytes": 7789506,
   "files": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.yml",
+      "bytes": 2441,
+      "sha256": "c6b883cd247b03cccf18f23a6607c302946046dfca7bf1a271b656b2c9cfbe6e"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "bytes": 602,
+      "sha256": "968f1bd5cd35819a3e54900203b160d278b751b96f80a517d4d5ca8f802c3bc2"
+    },
     {
       "path": ".github/workflows/source-checks.yml",
       "bytes": 730,
@@ -43,8 +53,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4641,
-      "sha256": "9c620765a66a474912a36643999d815e76daeb2c88d797e2fbde1d90a0e88561"
+      "bytes": 6807,
+      "sha256": "ba116f492d48470e454da7ee0991e9d5aebb022570ef6696847bd57e203ca474"
     },
     {
       "path": "THIRD_PARTY.md",

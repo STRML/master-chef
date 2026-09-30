@@ -1,24 +1,22 @@
 ![master chef — Halo-style silver wordmark over a blue ringworld](docs/assets/master-chef-header.png)
 
-# Master Chef · Halo Vision 1.0.3
+# Master Chef
 
-An unofficial, native Apple Vision Pro port of Halo: Combat Evolved for PC.
-The project translates a user-supplied Halo PC executable into native code and
-provides a Metal renderer, Windows compatibility layer, controller input,
-audio, and an immersive visionOS presenter.
+**Halo: Combat Evolved on Apple Vision Pro.**
 
-This is **v1.0.3**, with the Build91 runtime fixes and its complete visual mod
-selection: **1,068 texture replacements and 13 shader replacements**.
-The [Complete release download](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3)
-includes the rebuilt unsigned app, game assets, matching mods, configuration
-record, source, checksums and instructions. The Git checkout remains source
-and documentation; large assets are attached to the release.
+An unofficial native port of the original PC game, with a Metal renderer,
+immersive panorama, stereo forward view, controller support and haptics.
+The project translates the supported Halo PC executable into ARM64 code.
 
-You need **your own valid Halo PC license/product registration and Apple
-signing**. Product keys, registry exports, saves, personal profiles and Apple
-provisioning are not included. See [the Complete bundle guide](docs/COMPLETE_RELEASE.md).
-The existing [retail ISO setup](docs/SETUP.md) remains available and now fetches
-and verifies the same visual packs automatically.
+**[Download v1.0.3 — Complete bundle, 1.65 GB](https://github.com/mitchaiet/master-chef/releases/download/v1.0.3/MasterChef-v1.0.3-Complete.zip)**
+· [Installation guide](docs/COMPLETE_RELEASE.md)
+· [Set up with an agent](docs/AGENT_SETUP.md)
+· [Known issues](docs/KNOWN_ISSUES.md)
+
+**Playable, experimental release.** Combat frame-rate drops, panorama seams,
+texture glitches and audio interruptions remain under investigation. This is
+a development build you install through Xcode; your own valid Halo PC
+registration and Apple signing are required.
 
 ## Features
 
@@ -28,11 +26,50 @@ and verifies the same visual packs automatically.
 - Local save storage, bounded diagnostics, and optional local texture packs.
 - Hardware texture hashing and bounded reuse of static geometry.
 
+The Complete bundle includes the unsigned **1.0.3 / build 103** app, game
+assets, all **1,068 installed texture replacements and 13 shader replacements**,
+matching startup settings, source, notices and checksums. These are the same
+visual packs used by Build91; some original textures are intentionally retained.
+The Git checkout contains source and documentation; large assets are attached
+to the [release](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3).
+Private registration, saves, profiles and Apple signing material are excluded.
+
+## What you need
+
+- Apple Vision Pro running **visionOS 26.0 or later**, with Developer Mode
+  enabled, and a paired game controller.
+- An **Apple Silicon Mac**, Xcode with the visionOS SDK, and your Apple
+  account for signing. The release was built with SDK 26.5.
+- **Python 3.12**, **XcodeGen**, and at least **12 GiB free** beyond your
+  downloaded/extracted bundle and original media.
+- Your own **retail Halo PC license and valid product registration**.
+  The ISO route also needs a compatible Wine installation and the retail
+  PC 1.10 updater. Importing an existing installation avoids Wine.
+
+Custom Edition, Anniversary, MCC, and Xbox discs are not supported.
+See [prerequisites and the Windows fallback](docs/SETUP.md#what-you-need-once).
+
 ## Get started
 
-### One-command guided setup
+### Complete bundle
 
-On an Apple Silicon Mac with Xcode and the visionOS SDK:
+Download and extract the Complete ZIP above. If you already have a private
+Halo registry export from your registered PC installation, run this inside
+the extracted folder:
+
+```sh
+./setup.sh --bundled --registry "/path/to/private/halo-install.reg"
+```
+
+An existing Wine prefix can supply the registration instead. The
+[Complete bundle guide](docs/COMPLETE_RELEASE.md) explains both routes and
+download verification. The bundle reuses its included texture/shader packs
+without downloading them again. **The included app is unsigned**; setup
+prepares your private game payload and Xcode project for installation.
+
+### Start from your retail ISO
+
+If you have the original disc/ISO and printed key, use the guided installer:
 
 ```sh
 git clone https://github.com/mitchaiet/master-chef.git
@@ -46,12 +83,11 @@ private installation values, generates the engine, and opens Xcode with
 the game files already included. In Xcode, select your Apple Team, set a
 unique bundle ID, choose your Vision Pro and press Run.
 
-This is guided: you complete the original installer/update and Apple's
-signing/trust prompts. It requires Python 3.12, XcodeGen, a compatible Wine
-installation and 12 GiB free space. The [setup guide](docs/SETUP.md) covers
-prerequisites, the patch, resuming, and a Windows fallback if Wine cannot run
-the installer. An existing owned PC 1.10 installation can be imported without
-Wine. Custom Edition, Anniversary, MCC, and Xbox discs are not supported.
+The same ISO command works inside the extracted Complete bundle. From a
+source clone, setup downloads and verifies the matching visual packs.
+You complete the original installer/update and Apple's signing/trust prompts;
+this is guided setup, not an unattended installer. Enter your key only in
+the original installer, never in chat or a GitHub issue.
 
 - [Guided setup and troubleshooting](docs/SETUP.md)
 - **[Set up with a coding agent — copy/paste prompt and dedicated instructions](docs/AGENT_SETUP.md)**
@@ -78,11 +114,20 @@ original engine report a skip until locally generated code is available.
 
 ## Status
 
-Playable sessions have been reported during development. Full-campaign
-completion, consistent combat frame rates, panorama stitching, texture
-stability, and uninterrupted audio are still being improved. The v1.0 label
-identifies this source release; it is not a guarantee that every mission is
-free of defects. See [known limitations](docs/KNOWN_ISSUES.md).
+Build91 was installed and startup-verified on a Vision Pro. Build103 uses the
+same runtime fixes and adds complete resource packaging; it has been compiled
+and package-verified, but has not had a new full-campaign qualification run.
+Local source/build/setup checks passed. See [validation details](docs/VALIDATION.md)
+and [known limitations](docs/KNOWN_ISSUES.md) before reporting a problem.
+
+## Feedback and contributions
+
+[Report a bug](https://github.com/mitchaiet/master-chef/issues/new?template=bug_report.yml)
+with your version, mission/checkpoint and reproduction steps. For setup help,
+include the failed stage and a redacted error. Review attachments before posting;
+keep product keys, registry exports, signing files and raw diagnostics private.
+
+Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Repository
 
@@ -101,5 +146,7 @@ free of defects. See [known limitations](docs/KNOWN_ISSUES.md).
 The original project code is available under the [MIT License](LICENSE).
 Third-party licenses and credits are preserved in
 [THIRD_PARTY.md](THIRD_PARTY.md) and beside the vendored source.
+Game content and visual mods retain their separate rights and
+[asset notices](docs/ASSET_NOTICES.md); the MIT license covers original project code.
 Halo and its game assets belong to their respective owners. This project is
 not affiliated with or endorsed by Microsoft, Bungie, Gearbox, or Apple.

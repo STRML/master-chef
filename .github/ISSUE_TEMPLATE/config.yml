@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation and troubleshooting
+    url: https://github.com/mitchaiet/master-chef/blob/main/docs/SETUP.md
+    about: Prerequisites, ISO setup, existing installations, and Windows fallback.
+  - name: Set up with a coding agent
+    url: https://github.com/mitchaiet/master-chef/blob/main/docs/AGENT_SETUP.md
+    about: Copy/paste prompt and a step-by-step procedure for your agent.
+  - name: Complete release download
+    url: https://github.com/mitchaiet/master-chef/releases/latest
+    about: App, game content, visual packs, source, and checksums.
