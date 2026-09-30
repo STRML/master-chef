@@ -37,10 +37,15 @@ rates were 29.78 and 29.86 FPS respectively. These short desktop probes do not
 measure firefights, full missions, audible output or headset performance, and
 do not establish an improvement over an equivalent baseline.
 
-The owner headset's developer service was unreachable during the initial
-installation attempt. Build91 installation, launch and headset gameplay have
-not been validated for this source release. Known panorama, combat-performance
-and audio limitations remain documented in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
+The initial owner installation attempt could not reach the headset. A later
+attempt on September 29, 2026 (Central time) installed and launched Build91;
+device inventory independently confirmed version 1.0.2/build 91. Five startup
+diagnostic snapshots matched the expected BuildID. The final snapshot reached
+engine frame 1,226 with immersive presentation active, 2,708 completed GPU
+frames and zero GPU failures. Its audio queue was running with nonzero samples,
+zero enqueue failures and zero watchdog rebuilds. This verifies installation
+and startup, not audible continuity, visual acceptance or campaign performance.
+Known limitations remain in [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
 CI now targets macOS because the host fixtures depend on Mach APIs and Apple's
 linker. The local passes above are not hosted CI results; previous hosted runs

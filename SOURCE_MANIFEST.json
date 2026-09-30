@@ -4,7 +4,7 @@
   "formatVersion": 1,
   "scope": "Source, documentation and reviewed generated header artwork. No game payload, generated engine, signing material, executable binaries or private Git history.",
   "fileCount": 366,
-  "totalBytes": 8048587,
+  "totalBytes": 7757444,
   "files": [
     {
       "path": ".github/workflows/source-checks.yml",
@@ -103,18 +103,18 @@
     },
     {
       "path": "docs/VALIDATION.md",
-      "bytes": 7449,
-      "sha256": "05848b31c4af1015630ba9e9b6992e5273bf3a05f2b63900876622318efcdac7"
+      "bytes": 7826,
+      "sha256": "bed942be7ef3e70b88aad9d55cf4ecffbb7381b09e87978c12e6ab43ddd3eede"
     },
     {
       "path": "docs/assets/README.md",
-      "bytes": 1435,
-      "sha256": "5279e264b88ad2c09e3067752409c66efcefac7cbaacdf5708cbfedc0659c1d7"
+      "bytes": 2844,
+      "sha256": "24aa777c35bb0539d14ffd0456ce7da3afdaa3877774e59c7e240c87f4a961de"
     },
     {
       "path": "docs/assets/master-chef-header.png",
-      "bytes": 2231163,
-      "sha256": "93434569597096205b9d213172e8e395195bb3d803bfc27cae0e5e6d37e95139"
+      "bytes": 1938234,
+      "sha256": "e15bc1102ca36f40e357c39d48149445f94115971a9469406f7e67c9f442a386"
     },
     {
       "path": "native/EngineHost/Makefile",
@@ -1699,7 +1699,7 @@
     {
       "path": "tools/check_repository_hygiene.py",
       "bytes": 3570,
-      "sha256": "5f324040bdf6d95e353b791543020ab1a307b7f5ff0eb9763f34156f03965373"
+      "sha256": "94aa7ff98ce045f8d2579e5cd5a17f3d6faea5a0b4558502fa5bafe7f419bc24"
     },
     {
       "path": "tools/engine_reuse/decode.py",

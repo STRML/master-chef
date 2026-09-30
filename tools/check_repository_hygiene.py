@@ -15,7 +15,7 @@ SKIP = {'.git', '.build', '.setup', '__pycache__', '.venv', 'game', 'build', 'lo
 # Explicitly reviewed generated documentation art, never a general binary
 # allowlist. Changing this image requires reviewing and updating its digest.
 DOCUMENTATION_ART = {
-    'docs/assets/master-chef-header.png': '93434569597096205b9d213172e8e395195bb3d803bfc27cae0e5e6d37e95139',
+    'docs/assets/master-chef-header.png': 'e15bc1102ca36f40e357c39d48149445f94115971a9469406f7e67c9f442a386',
 }
 BAD_SUFFIX = {'.exe', '.dll', '.map', '.iso', '.ipa', '.p12', '.p8', '.pfx', '.pem', '.key',
               '.mobileprovision', '.provisionprofile', '.o', '.a', '.dylib', '.so', '.pyc',
