@@ -16,6 +16,8 @@ import subprocess
 import sys
 import time
 
+from visual_assets import bundle_visual_assets, ensure_visual_assets
+
 REPO = Path(__file__).resolve().parents[1]
 APP = REPO / "native" / "EngineVision"
 GEN = REPO / "native" / "build" / "engine-reuse" / "whole-exe"
@@ -80,7 +82,7 @@ def direct_xros_build(inventory: dict[str, object], clean: bool, configuration: 
         "-I", str(REPO / "native" / "EngineReuse"),
         "-I", str(GEN),
     ]
-    common = ["-target", target, "-isysroot", sdk, "-DENGINE_FLAT_MEMORY=1", "-DHALO_ARM64_FENV_FAST=1",
+    common = ["-target", target, "-isysroot", sdk, f"-ffile-prefix-map={REPO}=.", "-DENGINE_FLAT_MEMORY=1", "-DHALO_ARM64_FENV_FAST=1",
               "-frounding-math", "-ffp-contract=off", "-DMOJOSHADER_NO_VERSION_INCLUDE=1", '-DSUPPORT_PROFILE_D3D=0', '-DSUPPORT_PROFILE_BYTECODE=0', '-DSUPPORT_PROFILE_HLSL=0', '-DSUPPORT_PROFILE_GLSL120=0', '-DSUPPORT_PROFILE_GLSLES=0', '-DSUPPORT_PROFILE_GLSLES3=0', '-DSUPPORT_PROFILE_GLSL=0', '-DSUPPORT_PROFILE_ARB1=0', '-DSUPPORT_PROFILE_ARB1_NV=0', '-DSUPPORT_PROFILE_SPIRV=0', '-DSUPPORT_PROFILE_GLSPIRV=0', "-I", str(REPO / "third_party/mojoshader"), "-O2" if configuration == "Release" else "-O0", *includes]
     host = REPO / "native" / "EngineHost"
     c_sources = [host / name for name in (
@@ -179,9 +181,9 @@ def direct_xros_build(inventory: dict[str, object], clean: bool, configuration: 
         "CFBundleInfoDictionaryVersion": "6.0",
         "CFBundleName": "HaloVision",
         "CFBundlePackageType": "APPL",
-        "CFBundleShortVersionString": "1.0.2",
+        "CFBundleShortVersionString": "1.0.3",
         "CFBundleSupportedPlatforms": ["XROS"],
-        "CFBundleVersion": "102",
+        "CFBundleVersion": "103",
         "HaloBuildID": dt.datetime.now(dt.timezone.utc).isoformat(),
         "DTPlatformName": "xros",
         "GCSupportsControllerUserInteraction": True,
@@ -206,6 +208,7 @@ def direct_xros_build(inventory: dict[str, object], clean: bool, configuration: 
     (product / "PkgInfo").write_bytes(b"APPL????")
     shutil.copy2(APP / "Resources" / "ThirdPartyNotices.txt", product / "ThirdPartyNotices.txt")
     shutil.copy2(APP / "Resources" / "PrivacyInfo.xcprivacy", product / "PrivacyInfo.xcprivacy")
+    bundle_visual_assets(product, ensure_visual_assets())
     if not (product / "HaloVision").is_file():
         return 1, None
     print(f"Direct unsigned xros product: {product}", flush=True)
@@ -224,6 +227,7 @@ def main() -> int:
         if not shutil.which(tool):
             raise RuntimeError(f"required tool not found: {tool}")
     inventory = generated_inventory()
+    ensure_visual_assets()
     BUILD.mkdir(parents=True, exist_ok=True)
     if args.clean:
         shutil.rmtree(BUILD / "DerivedData", ignore_errors=True)

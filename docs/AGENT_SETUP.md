@@ -14,6 +14,11 @@ For an already installed copy, add the paths to your owned PC 1.10 game folder
 and private Halo registry export instead of an ISO. Do not paste the export's
 contents. This route also works when Wine cannot run the original installer.
 
+For the Complete release ZIP, use `./setup.sh --bundled --registry <private
+export>` after the readiness check. Setup reuses the bundled texture/shader
+packs after hash verification. Keep the export local; the Complete bundle does
+not include anyone's product registration or Apple signing.
+
 ## Agent procedure
 
 1. Read `docs/SETUP.md` and check the checkout's actual remote. The public

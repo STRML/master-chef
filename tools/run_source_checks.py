@@ -41,6 +41,7 @@ def main():
     run([sys.executable, ROOT / 'tools/test_repository_hygiene.py'])
     run([sys.executable, ROOT / 'tools/check_probe_runner_exit.py'])
     run([sys.executable, ROOT / 'tools/test_setup_halo.py'])
+    run([sys.executable, ROOT / 'tools/test_visual_assets.py'])
     run([sys.executable, ROOT / 'tools/test_engine_vision_report_summary.py'])
     run([sys.executable, ROOT / 'tools/test_watch_engine_vision_telemetry.py'])
     run([sys.executable, HOST / 'tests/test_dispatch_interest.py'])

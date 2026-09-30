@@ -11,8 +11,11 @@ the installation commands. Run `--stage check --json` first.
   chat or command-line flags. Registry exports are private local inputs.
 - Keep original media, installations, saves, signing choices and unrelated
   files intact. Setup artifacts belong in ignored local directories.
-- Do not remove executable verification, fabricate installation values,
-  upload owned game files, or publish generated engine source.
+- Do not remove executable verification, fabricate installation values, or
+  publish generated engine source, private registrations, saved profiles or
+  signing material. Complete release assets require explicit authorization,
+  an exact file manifest and privacy review; never upload a raw installation
+  directory or the owner's signed app. See docs/RELEASING.md.
 - For setup changes, run `python3 tools/test_setup_halo.py`. Source checks are
   in `tools/run_source_checks.py`; use checks relevant to the change.
 - Distinguish preparation, generation, compilation, signing, installation,

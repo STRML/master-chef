@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "version": "1.0.3",
+  "runtimeBaseline": "Build91",
+  "textureEntries": 1068,
+  "shaderEntries": 13,
+  "files": [
+    {
+      "path": "TextureMods.hvt",
+      "bytes": 2876332440,
+      "sha256": "fa6d9e330354febf3e31bfca8637a35b2717373b286bd0bf99826e6f20ad54d3"
+    },
+    {
+      "path": "ShaderMods.hvs",
+      "bytes": 16268,
+      "sha256": "8dd1065a48dbeec963d8073ddd2e793c0c5c2440dcbfd8048d0134f0847ade9a"
+    },
+    {
+      "path": "CEnshineSources.zip",
+      "bytes": 105408,
+      "sha256": "239afc972859ddda518af4b85cbb98b1b199d6caea5b7d96f5d5567fdaa8fb43"
+    }
+  ],
+  "notes": "Exact runtime packs from the installed Build91; no product keys, saved profiles or Apple provisioning.",
+  "archive": {
+    "url": "https://github.com/mitchaiet/master-chef/releases/download/v1.0.3/MasterChef-v1.0.3-visual-assets.zip",
+    "bytes": 963216022,
+    "sha256": "e1cbe0fafd0367bc039f8ce0dc8555889ceeb12eac709b9bd6532cc22f1c6297"
+  }
+}

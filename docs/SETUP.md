@@ -2,8 +2,10 @@
 
 Run this on an Apple Silicon Mac. You supply your own **retail Halo: Combat
 Evolved for PC disc/ISO and valid product key**. The wizard prepares a private
-app with your game files; this repository and its public downloads contain
-source code only.
+app with your game files. The Git checkout contains source and documentation;
+the separate [Complete release](COMPLETE_RELEASE.md) also supplies the rebuilt
+unsigned app, game assets and complete visual packs. Your registration and
+signing remain private on either route.
 
 ```sh
 git clone https://github.com/mitchaiet/master-chef.git
@@ -59,12 +61,15 @@ not supported by this translator. The installed executable must match the
 3. Opens your selected PC 1.10 update when needed, then checks the resulting
    executable's exact hash. You can supply the file up front:
    `./setup.sh "/path/to/HALO.iso" --patch "/path/to/halopc-patch-1.0.10.exe"`.
-4. Imports only the executable, strings, maps, shader binaries and Halo
+4. Imports only the executable, strings, maps, shader binaries, original
+   configuration/movie files when present, and Halo
    installation registry values. It verifies all ten campaign maps and makes
    a local payload manifest. Your ISO and any existing installation remain
    intact. Your normal Wine prefix is not used or modified.
-5. Creates the Python environment, generates the native engine, bundles your
-   game files for Xcode, and opens the project. These steps can take time;
+5. Fetches and verifies the matching texture/shader pack (or reuses its local
+   copy in the Complete bundle), creates the Python environment, generates the
+   native engine, bundles your game files and visual mods for Xcode, and opens
+   the project. These steps can take time;
    progress names and private log locations are printed.
 
 The original installer and patch still have their own windows. This is a
@@ -142,6 +147,7 @@ process cannot write to the same checkout at the same time.
 | --- | --- |
 | `./setup.sh --stage check --json` | Readiness report for a person or agent; no install/build |
 | `./setup.sh … --stage prepare` | Import and validate owned game data only |
+| `./setup.sh --bundled --registry <private export>` | Use the Complete release data with your own registration |
 | `./setup.sh … --no-open` | Prepare the Xcode project without opening it |
 | `./setup.sh … --stage build` | Build an unsigned app including your private game payload |
 | `./setup.sh … --non-interactive` | Never open installer dialogs or prompt; stop with actionable missing inputs |

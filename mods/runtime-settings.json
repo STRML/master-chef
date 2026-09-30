@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "version": "1.0.3",
+  "runtimeBaseline": "Build91",
+  "appliesAutomatically": true,
+  "renderResolution": "2048x1536",
+  "targetEngineFPS": 30,
+  "panoramaVerticalFOVDegrees": 105,
+  "stereoIPDMillimetres": 63,
+  "hapticsStrength": 1,
+  "backdropBrightness": 1,
+  "selfGainDecibels": 18,
+  "spatialMenu": true,
+  "gazePointer": false,
+  "experimentalLayerAlignment": false,
+  "experimentalFramePacing": false,
+  "radialFog": false,
+  "audio": {
+    "sampleRate": 48000,
+    "bufferFrames": 1536,
+    "queuedBufferCount": 3
+  },
+  "environmentDefaults": {
+    "HALO_FF3D": "1",
+    "HALO_PANORAMA": "1",
+    "HALO_PANORAMA_DENSE": "1",
+    "HALO_PANORAMA_WORLD_FP": "1",
+    "HALO_PV_SKIN_FAST": "1",
+    "HALO_NATIVE_GATHER": "1",
+    "HALO_DRAW_FASTPATH": "1",
+    "HALO_PAD2KEY": "1",
+    "HALO_A10_AUTOPLAY": "0",
+    "HALO_UNLOCK_CAMPAIGN": "1",
+    "HALO_AUDIO_VOICE_TRACE": "1",
+    "HALO_CTLLOG": "1",
+    "HALO_HSC_TRACE": "120",
+    "HALO_HSC_TRACE_MAX": "128",
+    "HALO_CORE_TELEMETRY": "1"
+  },
+  "privacy": "No per-device tracking history, physical pose, identity, registration, save state or Apple signing. Defaults match Build91; the sampled headset had no saved render-resolution override.",
+  "limits": "Matching settings and assets do not establish equal performance or resolve known gameplay issues."
+}

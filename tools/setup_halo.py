@@ -216,6 +216,15 @@ def selected_game_files(source):
     selected = []
     for name in ('halo.exe', 'strings.dll'):
         selected.append((child_named(source, name), name))
+    # Keep runtime configuration and shipped cinematics when present. These
+    # are game assets, unlike saved profiles and installation registry data.
+    for name in ('config.txt', 'bungie.bik', 'gearbox.bik', 'mgs.bik', 'ending.bik'):
+        if not any(p.name.casefold() == name for p in source.iterdir()):
+            continue
+        file = child_named(source, name)
+        if not file.is_file():
+            raise SetupError('Optional game content must be a regular file: ' + name)
+        selected.append((file, name))
     for folder in ('maps', 'shaders'):
         directory = child_named(source, folder)
         if not directory.is_dir():
@@ -329,6 +338,8 @@ def python312():
 
 
 def build_engine(stage, no_open):
+    from visual_assets import ensure_visual_assets
+    ensure_visual_assets()
     python = python312()
     if not python:
         raise SetupError('Install Python 3.12 first: brew install python@3.12')
@@ -388,7 +399,7 @@ def build_engine(stage, no_open):
             run_logged([python, ROOT / 'tools/build_engine_vision.py', '--generate-only'], 'xcode-project', env)
         else:
             text = (PROJECT / 'project.pbxproj').read_text()
-            if 'GamePayloadManifest.json' not in text:
+            if 'GamePayloadManifest.json' not in text or 'TextureMods.hvt' not in text or 'ShaderMods.hvs' not in text:
                 raise SetupError('Existing Xcode project predates setup resources. Preserve its signing choices, '
                                  'then regenerate it with tools/build_engine_vision.py --generate-only.')
             print('Keeping the existing Xcode project and its signing choices.', flush=True)
@@ -455,6 +466,7 @@ def parse_args(argv=None):
     parser.add_argument('iso', nargs='?', type=Path, help='Your original Halo PC retail ISO; omit to choose it in a file picker')
     parser.add_argument('--stage', choices=('check', 'prepare', 'xcode', 'build'), default='xcode', help='Default: prepare owned game, generate sources and open Xcode')
     parser.add_argument('--game-dir', type=Path, help='Import an existing, owned PC 1.10 installation instead of running the ISO installer')
+    parser.add_argument('--bundled', action='store_true', help='Use the Complete release game data; supply your own --registry or --wine-prefix')
     parser.add_argument('--registry', type=Path, help='Your Halo registry seed or Windows .reg export (never a raw product key)')
     parser.add_argument('--wine-prefix', type=Path, help='Read game/registry from an existing Wine prefix; never modified')
     parser.add_argument('--wine', help='Path to a macOS Wine binary for ISO installation')
@@ -463,6 +475,12 @@ def parse_args(argv=None):
     parser.add_argument('--no-open', action='store_true', help='Prepare Xcode without opening it')
     parser.add_argument('--json', action='store_true', help='Machine-readable --stage check output')
     args = parser.parse_args(argv)
+    if args.bundled:
+        if args.iso or args.game_dir:
+            parser.error('--bundled cannot be combined with an ISO or --game-dir')
+        if not args.registry and not args.wine_prefix:
+            parser.error('--bundled requires your private --registry or --wine-prefix')
+        args.game_dir = ROOT / 'Release/HaloVision.app/GamePayload'
     if args.json and args.stage != 'check':
         parser.error('--json is available with --stage check')
     if args.iso and args.game_dir:

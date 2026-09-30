@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.3
+
+- Publishes the full visual selection used by Build91: 1,068 texture and 13
+  shader replacements, with original CEnshine shader source and license.
+- Fixes both direct and Xcode builds omitting the texture/shader packs.
+  Setup fetches checksum-pinned packs; the Complete bundle can reuse its
+  included copies without a second download.
+- Preserves the original configuration and movie files when importing game
+  data; personal saves and profiles remain excluded.
+- Adds archive integrity, safe extraction, offline bundle, tamper and
+  preservation regressions. Unknown or modified packs are never silently used.
+- Adds a fresh unsigned visionOS build (103), full release manifests and
+  setup instructions. Product registration and Apple signing remain local.
+- Corrects the generated header's E/F lettering and records verified Build91
+  headset installation/startup. Runtime gameplay code is unchanged from 1.0.2.
+
 ## 1.0.2
 
 - Supports independent U/V texture addressing, mirrored repetition and mirrored

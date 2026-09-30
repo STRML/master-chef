@@ -1,10 +1,10 @@
 {
-  "version": "1.0.2",
-  "license": "MIT for original project code; third-party notices retained",
+  "version": "1.0.3",
   "formatVersion": 1,
-  "scope": "Source, documentation and reviewed generated header artwork. No game payload, generated engine, signing material, executable binaries or private Git history.",
-  "fileCount": 366,
-  "totalBytes": 7757444,
+  "license": "MIT for original project code; third-party and asset notices retained",
+  "scope": "Source, documentation, reviewed header and public asset/configuration manifests. Game and runtime packs are separate release assets.",
+  "fileCount": 372,
+  "totalBytes": 7784297,
   "files": [
     {
       "path": ".github/workflows/source-checks.yml",
@@ -13,8 +13,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 522,
-      "sha256": "2eadad6c42a7106d328c8e81e04658d893835864bef9f3be84533b0de6a1ee11"
+      "bytes": 532,
+      "sha256": "69cef6d8c8c2bb77da5571ae2c0df116f3968471aa49e7f633c78b38bc35371a"
     },
     {
       "path": ".gitleaks.toml",
@@ -23,13 +23,13 @@
     },
     {
       "path": "AGENTS.md",
-      "bytes": 1166,
-      "sha256": "d6fa449cec1b0ef999bad31ed5fe36b17fd90b1aead6147ae0f3b0fd7e7ec571"
+      "bytes": 1397,
+      "sha256": "d8fffb7d796b47bd1d28e3990d98f5df42bc165eee9689ef4ee03688cda5c09e"
     },
     {
       "path": "CHANGELOG.md",
-      "bytes": 2628,
-      "sha256": "72420829749bc07b58a4881610a347d2e799ea7b7c1d4f7aa538fcd450f656d1"
+      "bytes": 3559,
+      "sha256": "e86390e2993803922a5753a87870f9cfb7261ec3a1f2bec94cc068d757b061f9"
     },
     {
       "path": "CONTRIBUTING.md",
@@ -43,8 +43,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4150,
-      "sha256": "4c02082d310cc3a93baf564fb3330e1ca4fa0c21b32cb80e7955c9985a82bf60"
+      "bytes": 4641,
+      "sha256": "9c620765a66a474912a36643999d815e76daeb2c88d797e2fbde1d90a0e88561"
     },
     {
       "path": "THIRD_PARTY.md",
@@ -54,7 +54,7 @@
     {
       "path": "VERSION",
       "bytes": 6,
-      "sha256": "9fd28642d3aca191e5c7fc2383cfd6fabb2aac8743f029dabb8989ac584e31bc"
+      "sha256": "f5e5c9534532840fcd45bb002e69ed85c61dba2753450e26b448b7df1481e24d"
     },
     {
       "path": "decompilation/c9acf0c46954/extra-function-entries.txt",
@@ -68,8 +68,8 @@
     },
     {
       "path": "docs/AGENT_SETUP.md",
-      "bytes": 4821,
-      "sha256": "414fb89630a20b63d67e702c25d5dd1af50c5aa4eb656dfbf285e0a4ec81a927"
+      "bytes": 5113,
+      "sha256": "84998dcafd676ebe8bf009d978507d3c13ce4d9ff4b26dcda793748c6b22aafd"
     },
     {
       "path": "docs/ARCHITECTURE.md",
@@ -77,9 +77,19 @@
       "sha256": "0c5bf27f5a645c4ee481ded72b5f78d2459653ae1f4667ef7230dd974ca9cb51"
     },
     {
+      "path": "docs/ASSET_NOTICES.md",
+      "bytes": 1546,
+      "sha256": "a9ecf09aabf31317f759f195caa43617d5f5cada21577cd65622c69998ab3ffe"
+    },
+    {
       "path": "docs/BUILDING.md",
-      "bytes": 7055,
-      "sha256": "68f5e84bf20428be191af55f85ed55238984777b0ac970bb69cfc428fb0adfe8"
+      "bytes": 7569,
+      "sha256": "52ceda7db2445cc49270d8c1e84d17b1b5877440914fca10fe1765ecb91350e0"
+    },
+    {
+      "path": "docs/COMPLETE_RELEASE.md",
+      "bytes": 3963,
+      "sha256": "72508c6c1a90beace5ac46fe5ed0b375249ef9aabb6af7c7a03a283f084a12a2"
     },
     {
       "path": "docs/CONTROLS.md",
@@ -93,18 +103,18 @@
     },
     {
       "path": "docs/RELEASING.md",
-      "bytes": 1987,
-      "sha256": "a558fa2213e21e3789c71ec94b51c50067fae6f60894719d9c0c83436e44c763"
+      "bytes": 3291,
+      "sha256": "8b5cd7e80901fd61cb79a49fe30f08a46886910cf3c469a4bf14447a0af9a34e"
     },
     {
       "path": "docs/SETUP.md",
-      "bytes": 8567,
-      "sha256": "14f021c43e60023dae9dc862a95f0259e234ece73b47f011ebd3d5f32cd6609d"
+      "bytes": 9040,
+      "sha256": "5f491c936d16c231d77f19e37c6ccc0517ee3c0301b446cc4cf8543be659102f"
     },
     {
       "path": "docs/VALIDATION.md",
-      "bytes": 7826,
-      "sha256": "bed942be7ef3e70b88aad9d55cf4ecffbb7381b09e87978c12e6ab43ddd3eede"
+      "bytes": 9554,
+      "sha256": "7ea8de761b749f91cdaf53896a43275a45e07803f928aa073477ec9b488e941b"
     },
     {
       "path": "docs/assets/README.md",
@@ -115,6 +125,16 @@
       "path": "docs/assets/master-chef-header.png",
       "bytes": 1938234,
       "sha256": "e15bc1102ca36f40e357c39d48149445f94115971a9469406f7e67c9f442a386"
+    },
+    {
+      "path": "mods/runtime-settings.json",
+      "bytes": 1348,
+      "sha256": "c2e1875578fd15f0fa80234c9bfb3f1ea63ea8692bba621b3b8abd58040955db"
+    },
+    {
+      "path": "mods/visual-assets.json",
+      "bytes": 965,
+      "sha256": "4121a3ae77111768ed805be1b3395334eae28b5618ea040598d3a3a97217fabe"
     },
     {
       "path": "native/EngineHost/Makefile",
@@ -1463,8 +1483,8 @@
     },
     {
       "path": "native/EngineVision/project.yml",
-      "bytes": 4462,
-      "sha256": "b35fbb3caf2c4e28db4dea5b45eb1d9c911bfda1bb6f2ee662d596f0f9797cc1"
+      "bytes": 4809,
+      "sha256": "6269aee6e291c284015953328468eff464ab17bd1cf3e9d486a7146ecd9ea682"
     },
     {
       "path": "native/Tests/EngineRuntimeContract.c",
@@ -1683,8 +1703,8 @@
     },
     {
       "path": "tools/build_engine_vision.py",
-      "bytes": 15655,
-      "sha256": "a44dfd0df2963d15bbf708c9dce58c9d2b8b266a9b534a50cdcaf0734b6c9e31"
+      "bytes": 15841,
+      "sha256": "210e856f4bce96d99a29fdf33ba329ec95e21b29e30e59264f6d022136941705"
     },
     {
       "path": "tools/check_core_telemetry_xros.py",
@@ -1793,13 +1813,13 @@
     },
     {
       "path": "tools/run_source_checks.py",
-      "bytes": 20828,
-      "sha256": "7395ec3d2f9db96af52bf0a976a3d22f67a0d792336dcccb4f58124732807fb7"
+      "bytes": 20892,
+      "sha256": "cd82899e673938562ef9b357d8160f0f5ad3d9cabb9c6d967bbea832cae9f6a7"
     },
     {
       "path": "tools/setup_halo.py",
-      "bytes": 29686,
-      "sha256": "fc3d3aeeb58e5151269d38389fa453de2fc31fa1f338a4184a74d81426bde64c"
+      "bytes": 30857,
+      "sha256": "564e1add4c9e0d17587b82cc0e4de751a8657d986fbb3389e0d65e82b1700afc"
     },
     {
       "path": "tools/test_engine_vision_report_summary.py",
@@ -1827,9 +1847,19 @@
       "sha256": "3e774ffc303ff52513a0670a72318314ed145ba4fa91fb7d241e4d5940cc1c99"
     },
     {
+      "path": "tools/test_visual_assets.py",
+      "bytes": 5049,
+      "sha256": "f3dd6b093375638b3e6ab87773989f4fe767edcc1da957d2eec6b16dccfa16bb"
+    },
+    {
       "path": "tools/test_watch_engine_vision_telemetry.py",
       "bytes": 1654,
       "sha256": "85ebe90ac6ffc27f405edcd84b1adb120bcf0d7379b029561e13f2a8d34ea5bf"
+    },
+    {
+      "path": "tools/visual_assets.py",
+      "bytes": 6240,
+      "sha256": "cc66b498f37284d2029aeb2070e1f8b314f7f0d9c2914cbb45250808c6aa9803"
     },
     {
       "path": "tools/watch_engine_vision_telemetry.py",

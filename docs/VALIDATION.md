@@ -1,5 +1,32 @@
 # Source-release validation
 
+## 1.0.3 complete packaging update
+
+- Fresh public-source engine generation completed with 8,336 functions and
+  32 chunks. An unsigned ARM64 visionOS Release build compiled 59 native units
+  and 24 Swift sources, version 1.0.3/build 103, SDK 26.5.
+- The direct app contains the exact Build91 texture and shader packs: 1,068
+  texture entries and 13 shader replacements. All pack hashes match the
+  installed baseline. The CEnshine source/license archive is also included.
+- Xcode project generation confirms every visual pack and manifest in Copy
+  Bundle Resources. Previously these resources were omitted by public builds.
+- All nine visual-asset/content tests passed: exact import/resume/bundling, outer
+  checksum rejection, changed-pack preservation, unsafe and symbolic entry
+  rejection, invalid inner content, symbolic destination rejection and local
+  Complete-bundle reuse without a network request, plus preservation of the
+  original configuration and movie assets while excluding saves/registration.
+  The 24 setup regressions
+  and portable source suite (32 C targets plus additional checks) also passed.
+- The renderer, audio recovery, native settings and settings UI sources match
+  the frozen Build91 sources. The sampled headset preferences contained no
+  saved resolution override; the recorded startup resolution was 2048x1536.
+  Device tracking history and physical pose are not copied into the release.
+
+The new build is package-verified and unsigned. Build91 installation and
+startup evidence below remains the headset evidence for these runtime fixes;
+it does not prove a new Build103 installation, full mission performance or
+audible continuity. Other users supply their own registration and signing.
+
 ## 1.0.2 rendering and audio recovery update
 
 Validated on an Apple Silicon Mac:

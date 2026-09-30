@@ -14,7 +14,9 @@ existing installations and explicit signing workflows.
   project route. The direct SDK build does not require XcodeGen.
 - Your own Halo: Combat Evolved for PC retail disc or ISO and a valid product
   key. Install your copy and prepare the supported PC 1.10 executable and
-  complete retail game data described below. No game files or keys are supplied.
+  complete retail game data described below. The Git checkout contains no game
+  files; the separate [Complete release](COMPLETE_RELEASE.md) includes static
+  game assets and mods. Keys and registration values are never supplied.
 - For device installation, your Apple development signing identity, an app
   identifier you control, a provisioning profile containing your Vision Pro,
   and a paired headset with Developer Mode enabled.
@@ -94,8 +96,14 @@ Set the application's bundle identifier to one you control, select your
 team, and enable automatic signing in Xcode. The public default,
 `org.example.halovision`, is a placeholder. The CLI normally performs unsigned
 builds; an Xcode development run supplies a profile for your account.
-The project version is 1.0.1 (build 101). The public source omits the old
+The project version is 1.0.3 (build 103). The public source omits the old
 screenshot-derived app icon; add your own artwork for distribution.
+
+Both build routes include all verified visual packs. They are stored under
+`.setup/VisualMods`, outside Git. Setup downloads the checksum-pinned archive
+when necessary; for an offline download run
+`python3 tools/visual_assets.py --archive /path/to/MasterChef-v1.0.3-visual-assets.zip`.
+The Complete bundle can supply those files directly without another download.
 
 ## Supply game data and sign locally
 
