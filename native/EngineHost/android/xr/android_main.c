@@ -229,17 +229,24 @@ void android_main(struct android_app *app) {
     app->onAppCmd = on_app_cmd;
     app->onInputEvent = on_input;
 
-    /* Game root: the activity's internal data dir + /game (adb-pushed
-     * payload via the Quest setup stage); HALO_ROOT overrides for
-     * device-side testing. */
+    /* Game root: the EXTERNAL files dir + /game — the exact path the
+     * Quest setup stage adb-pushes to (/sdcard/Android/data/<pkg>/files).
+     * internalDataPath is the /data/user/0 dir, which adb cannot write
+     * without root; it is only a fallback for devices that report no
+     * external storage. HALO_ROOT overrides for device-side testing. */
     const char *root = getenv("HALO_ROOT");
     if (!root || !root[0]) {
         static char rootbuf[1024];
-        snprintf(rootbuf, sizeof rootbuf, "%s/game", app->activity->internalDataPath);
+        const char *data = app->activity->externalDataPath;
+        if (!data || !data[0]) data = app->activity->internalDataPath;
+        snprintf(rootbuf, sizeof rootbuf, "%s/game", data);
         root = rootbuf;
     }
     snprintf(g_root, sizeof g_root, "%s", root);
     snprintf(g_exe, sizeof g_exe, "%s/halo.exe", g_root);
+    /* Log the resolved root so the on-device validation can confirm the
+     * adb-pushed payload location via `adb logcat -s haloquest`. */
+    AM_LOG("game root: %s", g_root);
     const char *extra = getenv("HALO_CMDLINE_EXTRA");
     static char cmd[2048];
     snprintf(cmd, sizeof cmd, "%s%s%s", host_command_line,
