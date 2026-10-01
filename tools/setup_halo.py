@@ -30,6 +30,11 @@ PROJECT = ROOT / 'native/EngineVision/EngineVision.xcodeproj'
 GIB = 1024 ** 3
 CAMPAIGN = ('a10', 'a30', 'a50', 'b30', 'b40', 'c10', 'c20', 'c40', 'd20', 'd40')
 PATCH_INFO = 'https://www.bungie.net/en/Forums/Post/64943622'
+QUEST_PACKAGE = 'com.masterchef.haloquest'
+QUEST_DEVICE_GAME = '/sdcard/Android/data/com.masterchef.haloquest/files/game'
+QUEST_ANDROID = ROOT / 'android'
+QUEST_APK = QUEST_ANDROID / 'app/build/outputs/apk/debug/app-debug.apk'
+QUEST_JNILIBS = ROOT / 'native/build/android-arm64/apk/jniLibs/arm64-v8a'
 
 
 class SetupError(RuntimeError):
@@ -130,7 +135,7 @@ def choose_file(prompt, non_interactive):
 
 def run_logged(command, label, env=None, cwd=ROOT, timeout=None):
     logs = LOCAL / 'logs'
-    logs.mkdir(exist_ok=True, mode=0o700)
+    logs.mkdir(parents=True, exist_ok=True, mode=0o700)
     log_path = logs / (label + '.log')
     print(f'{label}… (private log: .setup/logs/{label}.log)', flush=True)
     fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
@@ -411,6 +416,51 @@ def build_engine(stage, no_open):
             subprocess.run(['open', str(PROJECT)], check=True)
 
 
+def quest_commands(args):
+    """Ordered Quest packaging command list for issue #1 phase 6.
+    Pure: --dry-run prints these, a real run executes them with run_logged.
+    Native .so libs come from the arm64 NDK build (phase 3/4) staged into
+    the gitignored jniLibs dir; Gradle assembles the APK; adb installs it
+    and pushes the gitignored game/ payload to app-specific storage.
+    Each entry is (label, argv, cwd)."""
+    gradle = args.gradle or shutil.which('gradle') or str(QUEST_ANDROID / 'gradlew')
+    adb = args.adb or shutil.which('adb') or 'adb'
+    android_dir = ROOT / 'native/EngineHost/android'
+    cmds = [
+        ('quest-native-libs', ['make', '-C', str(android_dir),
+         '-j', str(os.cpu_count() or 4), 'jniLibs'], ROOT),
+        ('quest-apk', [gradle, '--no-daemon', '-q', 'assembleDebug'], QUEST_ANDROID),
+    ]
+    if not args.no_install:
+        cmds.append(('quest-adb-install', [adb, 'install', '-r', str(QUEST_APK)], QUEST_ANDROID))
+        cmds.append(('quest-push-game', [adb, 'push', str(GAME) + '/.',
+         QUEST_DEVICE_GAME], ROOT))
+    return cmds
+
+
+def quest_stage(args):
+    """Build the Quest 3 APK and (unless --dry-run) sideload the payload.
+    Requires an Android SDK (Gradle) and, for install/push, one adb device;
+    none of that runs under --dry-run, which only prints the plan."""
+    for label, command, cwd in quest_commands(args):
+        if args.dry_run:
+            print(f'[dry-run] {label}: cd {cwd} && ' + ' '.join(map(str, command)), flush=True)
+            continue
+        if not (ROOT / 'native/build/android-arm64/apk/jniLibs/arm64-v8a/libhaloquest.so').is_file() \
+                and label == 'quest-apk':
+            raise SetupError('libhaloquest.so is not staged in jniLibs; the native build stage failed.')
+        run_logged(command, label, cwd=cwd)
+    if args.dry_run:
+        print('Quest dry-run: nothing was built, installed, or pushed.', flush=True)
+        return
+    if args.no_install:
+        print(f'Quest APK built: {QUEST_APK.relative_to(ROOT)}\n'
+              'This proves packaging only; no install or push was run (--no-install).', flush=True)
+    else:
+        print(f'Quest APK built: {QUEST_APK.relative_to(ROOT)}\n'
+              f'Installed {QUEST_PACKAGE} and pushed the game payload to {QUEST_DEVICE_GAME}.\n'
+              'This proves install + payload staging, not on-device rendering; '
+              'run the checklist in docs/VALIDATION.md.', flush=True)
 def doctor(args):
     checks = []
     def add(name, ok, action=''):
@@ -464,7 +514,7 @@ def doctor(args):
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('iso', nargs='?', type=Path, help='Your original Halo PC retail ISO; omit to choose it in a file picker')
-    parser.add_argument('--stage', choices=('check', 'prepare', 'xcode', 'build'), default='xcode', help='Default: prepare owned game, generate sources and open Xcode')
+    parser.add_argument('--stage', choices=('check', 'prepare', 'xcode', 'build', 'Quest'), default='xcode', help='Default: prepare owned game, generate sources and open Xcode; Quest builds the Android APK (issue #1)')
     parser.add_argument('--game-dir', type=Path, help='Import an existing, owned PC 1.10 installation instead of running the ISO installer')
     parser.add_argument('--bundled', action='store_true', help='Use the Complete release game data; supply your own --registry or --wine-prefix')
     parser.add_argument('--registry', type=Path, help='Your Halo registry seed or Windows .reg export (never a raw product key)')
@@ -474,6 +524,10 @@ def parse_args(argv=None):
     parser.add_argument('--non-interactive', action='store_true', help='Never start an installer UI or ask questions; report missing human steps')
     parser.add_argument('--no-open', action='store_true', help='Prepare Xcode without opening it')
     parser.add_argument('--json', action='store_true', help='Machine-readable --stage check output')
+    parser.add_argument('--dry-run', action='store_true', help='--stage Quest: print the build/install plan, run nothing')
+    parser.add_argument('--gradle', help='--stage Quest: gradle binary (default: PATH, then android/gradlew)')
+    parser.add_argument('--adb', help='--stage Quest: adb binary (default: PATH)')
+    parser.add_argument('--no-install', action='store_true', help='--stage Quest: build the APK, skip adb install/push')
     args = parser.parse_args(argv)
     if args.bundled:
         if args.iso or args.game_dir:
@@ -504,6 +558,10 @@ def main(argv=None):
                 if row['action']:
                     print('  ' + row['action'])
         return 0 if report['ready'] else 2
+    if args.stage == 'Quest':
+        if sys.platform != 'darwin' or platform.machine() != 'arm64':
+            raise SetupError('The Quest APK build needs the arm64 Android NDK on this Mac.')
+        return quest_stage(args)
     if sys.platform != 'darwin' or platform.machine() != 'arm64':
         raise SetupError('Run setup on an Apple Silicon Mac. See docs/SETUP.md for preparing your game on Windows.')
     if args.stage != 'prepare':

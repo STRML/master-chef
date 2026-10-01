@@ -236,5 +236,37 @@ class WorkflowTests(unittest.TestCase):
             setup.parse_args(['Halo.iso', '--game-dir', 'already-installed'])
 
 
+
+class QuestStageTests(unittest.TestCase):
+    """The Quest plan must be complete, ordered, and inert under --dry-run."""
+
+    def test_dry_run_plan_is_complete_and_ordered(self):
+        args = setup.parse_args(['--stage', 'Quest', '--dry-run'])
+        commands = setup.quest_commands(args)
+        self.assertEqual([label for label, _cmd, _cwd in commands],
+                         ['quest-native-libs', 'quest-apk', 'quest-adb-install', 'quest-push-game'])
+        cmds = [cmd for _label, cmd, _cwd in commands]
+        self.assertEqual(cmds[0][0], 'make')
+        self.assertIn('jniLibs', cmds[0])
+        self.assertIn('assembleDebug', cmds[1])
+        self.assertEqual(cmds[2][1:3], ['install', '-r'])
+        self.assertEqual(cmds[3][1], 'push')
+        self.assertTrue(str(cmds[3][2]).endswith('/game/.'),
+                        'push the game/ payload contents, not the directory itself')
+
+    def test_no_install_drops_device_steps(self):
+        args = setup.parse_args(['--stage', 'Quest', '--dry-run', '--no-install'])
+        self.assertEqual([label for label, _cmd, _cwd in setup.quest_commands(args)],
+                         ['quest-native-libs', 'quest-apk'])
+
+    def test_dry_run_executes_nothing(self):
+        args = setup.parse_args(['--stage', 'Quest', '--dry-run'])
+        with patch.object(setup, 'run_logged', side_effect=AssertionError('dry run must not execute')) as run, \
+                patch.object(setup.subprocess, 'Popen', side_effect=AssertionError('dry run must not launch')), \
+                contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertIsNone(setup.quest_stage(args))
+        run.assert_not_called()
+        self.assertIn('Quest dry-run', out.getvalue())
+
 if __name__ == '__main__':
     unittest.main()

@@ -52,3 +52,8 @@ native/build/android-arm64/
 # vulkan dev container outputs
 native/EngineHost/android/vkdev/vk_smoke
 native/EngineHost/android/halo-headless-static
+
+# Gradle packaging project outputs
+android/.gradle/
+android/**/build/
+android/local.properties

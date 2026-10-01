@@ -1,0 +1,9 @@
+// Root build file for the Quest 3 packaging project (issue #1, phase 6).
+// Pure packaging glue: the native engine is built by
+// native/EngineHost/android/Makefile with the NDK clang; Gradle only
+// assembles the APK from those staged artifacts. No device is required
+// to generate this file; building the APK requires the Android SDK
+// (ANDROID_HOME) and is driven by: ./setup.sh --stage quest
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}

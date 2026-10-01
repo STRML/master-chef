@@ -1,0 +1,63 @@
+// Quest 3 app packaging. Assembles an APK from artifacts produced by the
+// headless NDK build in native/EngineHost/android (see ../Makefile):
+//
+//   libhaloquest.so  - NativeActivity entry: engine + Vulkan renderer +
+//                      OpenXR shell (built by the phase 3/4 Makefile target)
+//   libopenxr.so     - OpenXR loader staged into jniLibs by the Quest
+//                      setup stage (third_party/openxr; never committed)
+//
+// There is deliberately no Java/Kotlin source (android:hasCode="false")
+// and no game data in this module: game files are pushed to
+// /sdcard/Android/data/com.masterchef.haloquest/files/game by adb in
+// ./setup.sh --stage quest.
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.masterchef.haloquest'
+    // Quest 3 ships Android 10 (API 29); the NDK build targets 29.
+    compileSdk 34
+    buildToolsVersion '34.0.0'
+
+    defaultConfig {
+        applicationId 'com.masterchef.haloquest'
+        minSdk 29
+        targetSdk 32
+        versionCode 1
+        versionName '0.1.0'
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    buildTypes {
+        debug {
+            // Sideload build; debuggable so the system loader logs match
+            // the on-device validation checklist.
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            // Unsigned release: signing inputs stay with the user
+            // (AGENTS.md); no keystore lives in this repository.
+        }
+    }
+
+    // Native libraries come from the gitignored NDK build directory,
+    // staged by setup.sh --stage quest. This keeps .so files out of git.
+    sourceSets {
+        main {
+            manifest.srcFile 'src/main/AndroidManifest.xml'
+            jniLibs.srcDirs = ['../../native/build/android-arm64/apk/jniLibs']
+        }
+    }
+
+    packagingOptions {
+        jniLibs {
+            // extractNativeLibs=true in the manifest: the OpenXR loader
+            // must be a real file on disk for the runtime to dlopen it.
+            useLegacyPackaging true
+        }
+    }
+}

@@ -1,0 +1,16 @@
+// Resolve the Android Gradle plugin from Google's Maven repository; the
+// plugin portal does not publish com.android.application.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'haloquest'
+include ':app'
