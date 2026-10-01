@@ -5,6 +5,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#ifdef __ANDROID__
+#include "engine_compat_android.h" /* clock_gettime_nsec_np, pthread cancellation no-ops */
+#endif
 #include <fenv.h>
 #ifndef HALO_ARM64_FENV_FAST
 #define HALO_ARM64_FENV_FAST 0

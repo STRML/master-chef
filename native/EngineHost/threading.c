@@ -1,3 +1,6 @@
+#ifdef __ANDROID__
+#include "engine_compat_android.h"
+#endif
 #include "host.h"
 #include "threading.h"
 

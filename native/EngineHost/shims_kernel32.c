@@ -1,3 +1,6 @@
+#ifdef __ANDROID__
+#include "engine_compat_android.h"
+#endif
 /* KERNEL32 stand-ins: process, memory, files, time, locale, and pthread-backed sync. */
 #include <pthread.h>
 #include "host.h"

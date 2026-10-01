@@ -1007,6 +1007,74 @@ static int target_binding_method(EngineCPU *cpu,D3DObj *device,int i,uint32_t *h
     }
     return 1;
 }
+/* HALO_RENDER_SURFACE=1: record the unique values of the D3D9 calls the game
+ * actually uses, and dump at exit. Used to size the Quest 3 renderer surface. */
+static void render_surface_probe(int i, EngineCPU *cpu);
+static void render_surface_report(void);
+
+static unsigned seen_rs[256][16], cnt_rs[256];
+static unsigned seen_ts[8][33][16], cnt_ts[8][33];
+static unsigned seen_samp[16][14][16], cnt_samp[16][14];
+static unsigned seen_fmt[32], cnt_fmt;
+static unsigned seen_fvf[32], cnt_fvf;
+static unsigned seen_prim[16], cnt_prim;
+static unsigned n_vs, n_ps, n_decl, n_tex, n_cubetex, n_voltex, n_dss, n_vb, n_ib;
+
+static void render_surface_add(unsigned *set, unsigned *cnt, unsigned v) {
+    for (unsigned k = 0; k < *cnt; k++) if (set[k] == v) return;
+    if (*cnt < 16) set[(*cnt)++] = v;
+}
+static void render_surface_probe(int i, EngineCPU *cpu) {
+    if (!getenv("HALO_RENDER_SURFACE")) return;
+    switch (i) {
+    case 57: if (ARG(1) < 256) render_surface_add(seen_rs[ARG(1)], &cnt_rs[ARG(1)], ARG(2)); break;
+    case 67: if (ARG(1) < 8 && ARG(2) < 33) render_surface_add(seen_ts[ARG(1)][ARG(2)], &cnt_ts[ARG(1)][ARG(2)], ARG(3)); break;
+    case 69: if (ARG(1) < 16 && ARG(2) < 14) render_surface_add(seen_samp[ARG(1)][ARG(2)], &cnt_samp[ARG(1)][ARG(2)], ARG(3)); break;
+    case 23: render_surface_add(seen_fmt, &cnt_fmt, ARG(5)); n_tex++; break;
+    case 24: render_surface_add(seen_fmt, &cnt_fmt, ARG(6)); n_voltex++; break;
+    case 25: render_surface_add(seen_fmt, &cnt_fmt, ARG(4)); n_cubetex++; break;
+    case 26: n_vb++; break;
+    case 27: n_ib++; break;
+    case 28: render_surface_add(seen_fmt, &cnt_fmt, ARG(3)); break;
+    case 29: render_surface_add(seen_fmt, &cnt_fmt, ARG(3)); n_dss++; break;
+    case 36: render_surface_add(seen_fmt, &cnt_fmt, ARG(3)); break;
+    case 86: n_decl++; break;
+    case 89: render_surface_add(seen_fvf, &cnt_fvf, ARG(1)); break;
+    case 91: n_vs++; break;
+    case 106: n_ps++; break;
+    case 81: case 83: case 84: render_surface_add(seen_prim, &cnt_prim, ARG(1)); break;
+    case 82: render_surface_add(seen_prim, &cnt_prim, ARG(1)); break;
+    }
+}
+
+static void render_surface_report(void) {
+    if (!getenv("HALO_RENDER_SURFACE")) return;
+    host_log("=== RENDER SURFACE (HALO_RENDER_SURFACE) ===");
+    for (unsigned s = 0; s < 256; s++) if (cnt_rs[s]) {
+        char buf[512]; int n = 0;
+        for (unsigned k = 0; k < cnt_rs[s] && n < 480; k++) n += snprintf(buf + n, sizeof buf - n, " %u", seen_rs[s][k]);
+        host_log("rs[%u] =%s", s, buf);
+    }
+    for (unsigned st = 0; st < 8; st++) for (unsigned ty = 0; ty < 33; ty++) if (cnt_ts[st][ty]) {
+        char buf[512]; int n = 0;
+        for (unsigned k = 0; k < cnt_ts[st][ty] && n < 480; k++) n += snprintf(buf + n, sizeof buf - n, " %u", seen_ts[st][ty][k]);
+        host_log("ts[%u][%u] =%s", st, ty, buf);
+    }
+    for (unsigned st = 0; st < 16; st++) for (unsigned ty = 0; ty < 14; ty++) if (cnt_samp[st][ty]) {
+        char buf[512]; int n = 0;
+        for (unsigned k = 0; k < cnt_samp[st][ty] && n < 480; k++) n += snprintf(buf + n, sizeof buf - n, " %u", seen_samp[st][ty][k]);
+        host_log("sampler[%u][%u] =%s", st, ty, buf);
+    }
+    char buf[512]; int n = 0;
+    for (unsigned k = 0; k < cnt_fmt; k++) n += snprintf(buf + n, sizeof buf - n, " %u", seen_fmt[k]);
+    host_log("texture formats:%s", buf);
+    n = 0; for (unsigned k = 0; k < cnt_fvf; k++) n += snprintf(buf + n, sizeof buf - n, " %08x", seen_fvf[k]);
+    host_log("FVFs:%s", buf);
+    n = 0; for (unsigned k = 0; k < cnt_prim; k++) n += snprintf(buf + n, sizeof buf - n, " %u", seen_prim[k]);
+    host_log("prim types:%s", buf);
+    host_log("counts: tex=%u cube=%u vol=%u vb=%u ib=%u dss=%u decl=%u vs=%u ps=%u", n_tex, n_cubetex, n_voltex, n_vb, n_ib, n_dss, n_decl, n_vs, n_ps);
+}
+
 /* Returns 1 if handled and writes HRESULT; the outer COM method pops its exact argument count. */
 static int render_method(EngineCPU *cpu,D3DObj *o,int i,uint32_t *hr) {
     *hr=D3D_OK;

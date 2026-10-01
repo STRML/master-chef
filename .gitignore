@@ -44,3 +44,7 @@ xcuserdata/
 *.hvs
 *.tpf
 halo-vision-registry.txt
+
+# Android headless build output
+native/EngineHost/android/halo-headless
+native/build/android-arm64/

@@ -1,4 +1,7 @@
 /* Flat-memory host: loads the PE image, serves imports through native shims, runs the entry point. */
+#ifdef __ANDROID__
+#include "engine_compat_android.h"
+#endif
 #include "host.h"
 #include "directsound.h"
 #include <stdlib.h>
@@ -52,7 +55,13 @@ static const char *sym_for(uint32_t a);
 static void dump_call_ring(void){ host_log("---- last 48 dispatched functions ----");
   for (int k = 48; k >= 1; k--){ uint32_t a = call_ring[(call_ring_i - (uint32_t)k) & 255]; if(!a) continue; const char *n = sym_for(a); host_log("   %08X %s", a, n?n:""); } host_log("----"); }
 uint32_t engine_trace_lo = 0xFFFFFFFFu, engine_trace_hi = 0;
+#ifdef __ANDROID__
+/* host_snapshot.h is a macOS test-capture hook (mincore page dumps); the
+ * headless Android build never captures, so it is excluded there. */
+static void host_capture_for_test(EngineCPU *cpu) { (void)cpu; }
+#else
 #include "host_snapshot.h"
+#endif
 void engine_pc_trace(EngineCPU *cpu){ host_capture_for_test(cpu);host_log("TRACE %08X eax=%08X ebx=%08X ecx=%08X edx=%08X esi=%08X edi=%08X ebp=%08X esp=%08X flags=%08X", cpu->pc, cpu->gpr[0], cpu->gpr[3], cpu->gpr[1], cpu->gpr[2], cpu->gpr[6], cpu->gpr[7], cpu->gpr[5], cpu->gpr[4],cpu->flags); }
 uint32_t host_main_hwnd = 0x00010001u;
 

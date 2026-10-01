@@ -5,7 +5,13 @@
  * delivered by AudioQueue on both macOS and visionOS. */
 #include "directsound.h"
 #include "directsound_mixer.h"
+#ifdef __ANDROID__
+/* Android: no AudioToolbox. fake_audioqueue.h is the same API surface,
+ * backed by a silent software output implemented in android/directsound_stub.c. */
+#include "fake_audioqueue.h"
+#else
 #include <AudioToolbox/AudioToolbox.h>
+#endif
 #include <math.h>
 #include <stdatomic.h>
 #include <stdlib.h>

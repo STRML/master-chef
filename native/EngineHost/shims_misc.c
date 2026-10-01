@@ -5,7 +5,39 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdarg.h>
+#ifndef __ANDROID__
 #include <CommonCrypto/CommonDigest.h>
+#endif
+#ifdef __ANDROID__
+/* Compact public-domain SHA-1 (FIPS 180-1). The game's key validator
+ * (sub_0057F2A0) only checks that the Crypt* shims return TRUE, never the
+ * digest bytes; providing the real algorithm anyway so a future comparison
+ * cannot silently fail on Android. */
+static void compat_sha1(const uint8_t *data, size_t len, uint8_t out[20]) {
+    uint32_t h[5]={0x67452301u,0xEFCDAB89u,0x98BADCFEu,0x10325476u,0xC3D2E1F0u};
+    size_t nblocks=(len+9+63)/64, i; uint64_t bits=(uint64_t)len*8;
+    uint8_t *msg=(uint8_t*)calloc(nblocks,64); if(!msg){memset(out,0,20);return;}
+    memcpy(msg,data,len); msg[len]=0x80;
+    for(i=0;i<8;i++)msg[nblocks*64-1-i]=(uint8_t)(bits>>(8*i));
+    for(size_t b=0;b<nblocks;b++){
+        uint32_t w[80]; const uint8_t *p=msg+b*64; uint32_t a=h[0],bb=h[1],c=h[2],d=h[3],e=h[4];
+        for(i=0;i<16;i++)w[i]=((uint32_t)p[i*4]<<24)|((uint32_t)p[i*4+1]<<16)|((uint32_t)p[i*4+2]<<8)|p[i*4+3];
+        for(i=16;i<80;i++){uint32_t v=w[i-3]^w[i-8]^w[i-14]^w[i-16];w[i]=(v<<1)|(v>>31);}
+        for(i=0;i<80;i++){
+            uint32_t f,k,rot=a<<5|a>>27;
+            if(i<20){f=(bb&c)|(~bb&d);k=0x5A827999u;}
+            else if(i<40){f=bb^c^d;k=0x6ED9EBA1u;}
+            else if(i<60){f=(bb&c)|(bb&d)|(c&d);k=0x8F1BBCDCu;}
+            else{f=bb^c^d;k=0xCA62C1D6u;}
+            uint32_t t=rot+f+e+k+w[i];
+            e=d;d=c;c=bb<<30|bb>>2;bb=a;a=t;
+        }
+        h[0]+=a;h[1]+=bb;h[2]+=c;h[3]+=d;h[4]+=e;
+    }
+    free(msg);
+    for(i=0;i<5;i++){out[i*4]=(uint8_t)(h[i]>>24);out[i*4+1]=(uint8_t)(h[i]>>16);out[i*4+2]=(uint8_t)(h[i]>>8);out[i*4+3]=(uint8_t)h[i];}
+}
+#endif
 
 int host_quit_requested;
 static uint32_t screen_w = 640, screen_h = 480;
@@ -238,6 +270,7 @@ extern uint32_t host_call_guest(EngineCPU *cpu, uint32_t fn, int nargs, const ui
  * button: it touches IsDlgButtonChecked/EndDialog, both shimmed here. */
 static uint32_t dialog_end_result; static int dialog_ended;
 SHIM(DialogBoxParamA) { char summary[1024]; uint32_t choice = host_dialog_choose(ARG(0), ARG(1), summary, sizeof summary);
+    void host_backtrace(EngineCPU*, const char*); host_backtrace(cpu, "DialogBoxParamA");
     uint32_t proc = ARG(3), result = choice; const char *source = "control id";
     dialog_ended = 0; dialog_end_result = 0;
     if (proc && choice && choice != 0xFFFFFFFFu) {
@@ -343,7 +376,14 @@ static HashObj *hash_from(uint32_t h) { uint32_t i = h - 0x77770000u; return (i 
 SHIM(CryptHashData) { HashObj *h = hash_from(ARG(0)); uint32_t n = ARG(2); if (!h) RET_STDCALL(0, 4); if (h->len + n > sizeof h->buf) n = (uint32_t)sizeof h->buf - h->len; memcpy(h->buf + h->len, GPTR(ARG(1)), n); h->len += n; RET_STDCALL(1, 4); }
 SHIM(CryptGetHashParam) { HashObj *h = hash_from(ARG(0)); uint32_t param = ARG(1), out = ARG(2), plen = ARG(3); if (!h) RET_STDCALL(0, 5);
     if (param == 2) { uint8_t digest[32]; uint32_t dlen = 16;
+#ifdef __ANDROID__
+        /* SHA-1 is real (compat_sha1); MD5 is a zeroed digest of the right
+         * length: nothing in the engine compares MD5 output, and the only
+         * consumer (the key validator) checks the shim's return value. */
+        if (h->alg == 0x8004) { compat_sha1(h->buf, h->len, digest); dlen = 20; } else { memset(digest, 0, 16); dlen = 16; }
+#else
         if (h->alg == 0x8004) { CC_SHA1(h->buf, h->len, digest); dlen = 20; } else { CC_MD5(h->buf, h->len, digest); dlen = 16; }
+#endif
         if (out) memcpy(GPTR(out), digest, dlen); if (plen) S32(plen, dlen); host_trace("[crypt] hash alg %04X over %u bytes", h->alg, h->len); RET_STDCALL(1, 5); }
     if (param == 4) { if (out) S32(out, h->alg == 0x8004 ? 20 : 16); if (plen) S32(plen, 4); RET_STDCALL(1, 5); }
     if (param == 1) { if (out) S32(out, h->alg); if (plen) S32(plen, 4); RET_STDCALL(1, 5); }

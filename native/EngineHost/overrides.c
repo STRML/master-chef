@@ -1,6 +1,9 @@
 /* Host overrides for specific translated functions whose behavior is easier and safer to
    provide directly than to run through their locale-table-dependent original code.
    All are cdecl (caller cleans the stack), so RET_CDECL. */
+#ifdef __ANDROID__
+#include "engine_compat_android.h" /* panorama_hooks.inc: clock_gettime_nsec_np */
+#endif
 #include "host.h"
 #include "halo_settings.h"
 #include "campaign_unlock.h"
@@ -168,7 +171,20 @@ typedef struct { uint32_t addr; HostShim fn; const char *name; } Override;
 #include "a10_gamepad.inc"
 #include "hsc_trace.inc"
 #include "panorama_hooks.inc"
+#ifndef __ANDROID__
 #include "frame_pacing_hooks.inc"
+#else
+/* frame_pacing_hooks.inc is the macOS/visionOS publication pacer (mach
+ * absolute-time waits). The headless Android build has no display to pace
+ * against: the pacer is inert, and the panorama budget falls back to the
+ * target frame rate's own period. */
+uint64_t host_frame_pacer_present(const HaloFramePacerDisplay *display) {
+    (void)display;
+    return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+}
+float host_frame_pacer_budget_target(float fallback_seconds) { return fallback_seconds; }
+void host_frame_pacer_report(HaloFramePacerReport *out) { if (out) memset(out, 0, sizeof *out); }
+#endif
 #include "model_capture_hooks.inc"
 #include "audio_ownership_trace.inc"
 #include "native_leaves.h"

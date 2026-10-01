@@ -1,6 +1,9 @@
 /* Direct3D 9 host: COM objects live in guest memory with vtables of native shims.
    Pretransformed graphics and surface copies use Metal; programmable shaders remain pending.
    Every method is accounted for so stdcall stacks stay balanced; unimplemented ones log once and return D3D_OK. */
+#ifdef __ANDROID__
+#include "engine_compat_android.h" /* d3d9_render.inc: clock_gettime_nsec_np */
+#endif
 #include "host.h"
 #include "metalwin.h"
 #include "metalrenderer.h"
@@ -504,6 +507,7 @@ static int stateblock_device_method(EngineCPU *cpu,D3DObj *o,int i,uint32_t *hr)
 }
 static void method_device(EngineCPU *cpu, D3DObj *o, int i) {
     uint32_t render_hr;
+    render_surface_probe(i, cpu);
     if(stateblock_device_method(cpu,o,i,&render_hr))RET_STDCALL(render_hr,classes[K_DEVICE].methods[i].argc);
     if(render_method(cpu,o,i,&render_hr)) RET_STDCALL(render_hr,classes[K_DEVICE].methods[i].argc);
     switch (i) {
@@ -740,7 +744,7 @@ static void method_device(EngineCPU *cpu, D3DObj *o, int i) {
         }
         if (frames_presented <= 3 || frames_presented % 60 == 0) host_log("d3d9 Present: frame %u (%u draw calls)", frames_presented, draw_calls);
         draw_traffic_report();
-        if (host_frame_limit && frames_presented >= (uint32_t)host_frame_limit) { host_log("frame limit reached"); host_exit(0); } RET_STDCALL(D3D_OK, 5); }
+        if (host_frame_limit && frames_presented >= (uint32_t)host_frame_limit) { render_surface_report(); host_log("frame limit reached"); host_exit(0); } RET_STDCALL(D3D_OK, 5); }
 
     case 19: { uint32_t r = ARG(2); S32(r, 1); S32(r + 4, 0); RET_STDCALL(D3D_OK, 3); }
     case 22: { uint32_t r = ARG(2); for (uint32_t k = 0; k < 256; k++) { S16(r + 2 * k, (uint16_t)(k * 257)); S16(r + 512 + 2 * k, (uint16_t)(k * 257)); S16(r + 1024 + 2 * k, (uint16_t)(k * 257)); } RET_STDCALL(D3D_OK, 3); }
