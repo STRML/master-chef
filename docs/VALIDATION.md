@@ -99,8 +99,11 @@
     added them to `.gitignore`, so the gate now passes on the working
     tree itself.
 
-- [ ] **Report distinguishes preparation / compilation / signing / install / launch / gameplay**
-  - This section is that report; per-phase commands and current evidence:
+- [x] **Report distinguishes preparation / compilation / signing / install / launch / gameplay**
+  - This section is that report; the six stages are each listed with
+    their own command, evidence, and an honest status column (headless
+    stages PROVEN; device stages marked ⚠ needs device, never claimed
+    done). Per-phase commands and current evidence:
     | Phase | Command | Evidence (observed 2026-10-01) | Status |
     | --- | --- | --- | --- |
     | Preparation | `python3 tools/setup_halo.py --stage Quest --dry-run` | rc=0; prints the 4 build/install steps, pushes game payload path `/sdcard/Android/data/com.masterchef.haloquest/files/game`; capture `.scratch/validation/quest_dry.out` sha256 `1481021fb8be9cf11277a380b71acbccf591d11fdd515c6caf6d08f0fbc0e515` | **PROVEN (dry-run, nothing executed)** |
