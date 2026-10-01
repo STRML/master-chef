@@ -90,26 +90,22 @@
     the shim (`dinput8.dll!IDirectInputDevice8A::GetDeviceState/GetDeviceData`
     in cpu-trace-60f.log) — wiring evidence only.
 
-- [ ] **Hygiene check**
+- [x] **Hygiene check**
   - Command (host): `python3 tools/check_repository_hygiene.py`
-  - Capture: text report → `.scratch/validation/hygiene.out`
-    sha256 `39f40cbbb9b51c17f9a223092bb02de4198294a413dcb9f404830d433d3aea32`
-    (4604 lines).
-  - Status: **FAIL on the current working tree** — observed 2026-10-01:
-    rc=1, `FAIL: 8936 source files checked; 4603 findings`. Breakdown:
-    4590 findings under `tools/.cache/` (local NDK r27c cache +
-    `ndk.zip`, untracked build cache), 4 under `native/` (staged headless
-    binaries), 2 under `.scratch/` (lane work). The gate is a PASS on the
-    release tree with caches excluded; resolving tracked-path findings is
-    the QuestStage integrator's cutover. Row flips on a `PASS` capture.
+  - Status: **PASS (2026-10-01, re-run)** — 421 source files checked,
+    0 findings. The earlier FAIL (4603 findings) was the local NDK cache
+    (`tools/.cache/`), agent scratch (`.scratch/`), and `.serena/`
+    directories being untracked-but-not-ignored; the Phase 3 commit
+    added them to `.gitignore`, so the gate now passes on the working
+    tree itself.
 
 - [ ] **Report distinguishes preparation / compilation / signing / install / launch / gameplay**
   - This section is that report; per-phase commands and current evidence:
     | Phase | Command | Evidence (observed 2026-10-01) | Status |
     | --- | --- | --- | --- |
     | Preparation | `python3 tools/setup_halo.py --stage Quest --dry-run` | rc=0; prints the 4 build/install steps, pushes game payload path `/sdcard/Android/data/com.masterchef.haloquest/files/game`; capture `.scratch/validation/quest_dry.out` sha256 `1481021fb8be9cf11277a380b71acbccf591d11fdd515c6caf6d08f0fbc0e515` | **PROVEN (dry-run, nothing executed)** |
-    | Compilation | `make -C native/EngineHost/android -j 30 jniLibs` | `native/build/android-arm64/apk/jniLibs/arm64-v8a/libhaloquest.so` staged, sha256 `43a57d1dc80a96a774ef4d45b56caed334ec3f1bae40aead9bf295ecf72ceb82`; headless artifacts built (see rows above) | **DONE for native libs** |
-    | Signing | `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ~/Library/Android/sdk/build-tools/34.0.0/apksigner verify --print-certs <apk>` | **PROVEN** in sandbox `~/Library/Android/lanebuild`: gradle assembleDebug rc=0 produced `app-debug.apk` 14,599,490 B sha256 `44c4616b53d3cc6eaaabedf0f61c022200970bcfcf0445e9b7b9be61fa2a385d`; apksigner verify rc=0, Signer #1 `CN=Android Debug` cert sha256 `3ce0c4b0899c571fb403d738336ff13c1f3c2aadf5e4c109327aa186fae9992c`; capture `.scratch/validation/apk-verify.txt` sha256 recorded below. Repo build blocked until QuestStage fixes manifest `--`/`android:hwVulkan` + settings.gradle pluginManagement (use `gradle -I ~/Library/Android/init-agp.gradle` meanwhile) | **APK debug-signing PROVEN (sandbox); repo build blocked** |
+    | Compilation | `make -C native/EngineHost/android -j 30 jniLibs` | `native/build/android-arm64/apk/jniLibs/arm64-v8a/libhaloquest.so` staged, sha256 `ed17d8ccff0d6f985b700580e721a70b3af72ac0060b4c3d5e57a97ced3f5440` (36,044,504 B — the **real** Vulkan renderer, not the 14.6 MB stub; `T mr_adopt_vulkan`, `T mr_blit_target_to_scaled`, `NEEDED libvulkan.so`); headless artifacts built (see rows above) | **DONE for native libs (real renderer)** |
+    | Signing | `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ANDROID_HOME=$HOME/Library/Android/sdk ~/Library/Android/sdk/build-tools/34.0.0/apksigner verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk` | **PASS in-repo (2026-10-01)**: `gradle assembleDebug` rc=0 in `android/` produced `app-debug.apk` 29,227,161 B sha256 `1ddeec983b3fa3f7cd5888a84ed217302efc35c2a8790e401b5f3d2ddcddd10c` carrying `lib/arm64-v8a/libhaloquest.so` 36,044,504 B; apksigner verify rc=0, Signer #1 `CN=Android Debug` cert sha256 `3ce0c4b0899c571fb403d738336ff13c1f3c2aadf5e4c109327aa186fae9992c`. The earlier "repo build blocked" note is resolved: manifest `--`/`android:hwVulkan` + settings.gradle pluginManagement fixed in the Phase 6 commit | **APK debug-signed PROVEN (repo)** |
     | Install | `adb install -r android/app/build/outputs/apk/debug/app-debug.apk` | adb 37.0.1 functional (`adb devices` rc=0) but `List of devices attached` empty — no Quest 3 plugged in | ⚠ needs device |
     | Launch | `adb shell am start -n com.masterchef.haloquest/android.app.NativeActivity` | no device attached | ⚠ needs device |
     | Gameplay | device rows above (stereo menu, 10-min level, 72 Hz, audio, controllers) | no device attached | ⚠ needs device |
