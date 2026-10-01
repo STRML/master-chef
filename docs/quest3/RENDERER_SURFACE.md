@@ -13,9 +13,10 @@ values the game actually sets.
 
 Vulkan, not GLES 3.2. Three reasons:
 
-1. **Both programmable stages are required.** The game creates real D3D9
-   vertex shaders (vs_1_1–vs_2_0, 64 created) and pixel shaders
-   (ps_2_0/ps_2_x, 469 created). Translating to SPIR-V (DXBC/DXSO→SPIR-V)
+1. **Both programmable stages are required.** The game creates real Xbox
+   D3D8 vertex shaders (vs_1_1, 64) and pixel shaders (ps_1_1/1_4/2_0,
+   469). The vendored MojoShader emits SPIR-V directly (probe: 64/64 +
+   333/469 compile). Translating to SPIR-V (DXBC/DXSO→SPIR-V)
    is offline and well-trodden. GLES would force the same translation to
    GLSL ES 3.0, where D3D's `tex2Dproj`, dependent-read clamp, and the
    relative-constant VS addressing (Halo's `c[-const]`) are awkward and
@@ -143,15 +144,38 @@ lines, or patches. → `VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST`/`TRIANGLE_STRIP`.
 
 ## Shader surface
 
-- **Vertex shaders:** vs_1_1–vs_2_0 (64 created). Halo ships
+**SPIR-V probe (2026-10-01, verified):** the vendored MojoShader's
+SPIR-V emitter is complete (4401 lines, enabled by default, guarded
+out by the repo's `-DSUPPORT_PROFILE_SPIRV=0` build flags). The game's
+actual bytecode is **Xbox D3D8** token streams, not D3D9:
+
+| corpus | tokens | compile to SPIR-V |
+|---|---|---|
+| 64 vertex shaders | vs_1_1 | 64/64 |
+| 197 pixel shaders | ps_1_1 | 197/197 |
+| 136 pixel shaders | ps_2_0 | 136/136 |
+| 136 pixel shaders | ps_1_4 | 0/136 |
+
+The `ps_1_4` failures are one upstream gap: `TEXLD == Shader Model 1.4
+unimplemented` (`mojoshader_profile_spirv.c:3637`). A vs_1_1 + ps_2_0
+pair compiled with `MOJOSHADER_linkSPIRVShaders` (patch table) and
+loaded with `vkCreateShaderModule` into lavapipe with
+`VK_LAYER_KHRONOS_validation` force-enabled → `VK_SUCCESS`, 0 errors.
+The two CTAB normalizations the Metal path uses (`metalshader.c`:
+`without_legacy_ctab20` for ps_2_0, `with_register_ctab` for
+relative-constant vs_1_1) apply unchanged to the SPIR-V path.
+
+- **Vertex shaders:** vs_1_1 only (64 created; the probe found no vs_2_0). Halo ships
   **relative-constant** addressing (`c[-const]`); the existing
   `metalshader.c` patches a legacy `ctab20` metadata variant so MojoShader
   parses them. The SPIR-V path (DirectXShaderCompiler, or glslang via a D3D
   front-end) needs the same preprocessing.
-- **Pixel shaders:** ps_2_0/ps_2_x (469 created). Up to 4 `tex2D` samples,
-  `tex2Dproj`, `tex2dbias`, `def` constants, `dp3`/`mad` arithmetic. **No
-  ps_3_0**, no `tex3D`, no pixel-shader cube sampling (cubes are sampled via
-  fixed stages). ps_2_x is the well-supported subset.
+- **Pixel shaders:** ps_1_1 (197), ps_1_4 (136), ps_2_0 (136) — 469 total.
+  Up to 4 `tex2D` samples, `tex2Dproj`, `tex2dbias`, `def` constants,
+  `dp3`/`mad` arithmetic. **No ps_3_0**, no `tex3D`, no pixel-shader cube
+  sampling (cubes are sampled via fixed stages). The probe compiles
+  333/469 (ps_1_1 + ps_2_0) to SPIR-V; the 136 ps_1_4 are the only
+  upstream gap.
 - **Constants:** `SetVertexShaderConstantF` (256 regs) /
   `SetPixelShaderConstantF` (224 regs) — float4 arrays. The host packs them
   into a uniform buffer at draw time (`packed_float4_count * 16`).
@@ -182,8 +206,9 @@ vertex processing (set but host always does HW).
 - ~35 render states → 6 pipeline sub-states.
 - 4 fixed-function texture-combine stages (0–3) + up to 4 sampler stages.
 - 3 FVF layouts + 286 custom vertex declarations.
-- vs_1_1–vs_2_0 + ps_2_0/2_x (relative-constant preprocessing), fog
-  varying, alpha-test + vertex-fog injection.
+- vs_1_1 + ps_1_1/1_4/2_0 (Xbox D3D8 bytecode; probe: 64/64 + 333/469
+  compile to SPIR-V; 136 ps_1_4 TEXLD is the only upstream gap),
+  relative-constant preprocessing, fog varying, alpha-test + vertex-fog injection.
 - TRIANGLE_LIST / TRIANGLE_STRIP, indexed and user-pointer draws.
 
 The macOS Metal backend exercises every item above and is the reference
