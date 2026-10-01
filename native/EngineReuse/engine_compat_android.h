@@ -40,6 +40,10 @@ static inline uint64_t clock_gettime_nsec_np(clockid_t clock_id) {
     return (uint64_t)ts.tv_sec * UINT64_C(1000000000) + (uint64_t)ts.tv_nsec;
 }
 
+
+#ifndef HALO_NO_PTHREAD_CANCEL
+/* glibc has pthread cancellation; the container build uses this define
+ * to skip the no-op versions. */
 /* Bionic's pthread.h has no cancellation API. The host disables cancellation
  * around lock/wait pairs and re-enables it (with a testcancel) afterwards;
  * with cancellation never enabled, those are pure no-ops. The old state is
@@ -66,6 +70,9 @@ static inline void pthread_testcancel(void) { }
  * the force-cancel is redundant on bionic. Report success so the caller's
  * `error == 0` path proceeds as on macOS. */
 static inline int pthread_cancel(pthread_t thread) { (void)thread; return 0; }
+
+
+#endif /* HALO_NO_PTHREAD_CANCEL */
 
 /* macOS' relative-timeout condvar wait. Convert to the absolute deadline
  * pthread_cond_timedwait expects (measured on CLOCK_REALTIME, the clock a
