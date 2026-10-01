@@ -252,11 +252,93 @@ static void test_quads(void) {
     puts("quads ok");
 }
 
+/* The full session-state sequence the ticket pins:
+ * READY -> IDLE -> SYNCHRONIZED -> READY -> STOPPING -> EXITING,
+ * mapped through the event mapper and fed to the FSM. Every step must
+ * be accepted; IDLE is a no-op; the second READY re-signals the
+ * render loop; STOPPING pauses; EXITING (from PAUSED) tears down. */
+static void test_fsm_session_sequence(void) {
+    static const XrSessionState seq[] = {
+        XR_SESSION_STATE_READY,
+        XR_SESSION_STATE_IDLE,
+        XR_SESSION_STATE_SYNCHRONIZED,
+        XR_SESSION_STATE_READY,
+        XR_SESSION_STATE_STOPPING,
+        XR_SESSION_STATE_EXITING,
+    };
+    xr_lc lc;
+    xr_lc_init(&lc);
+    for (unsigned i = 0; i < sizeof seq / sizeof *seq; i++) {
+        xr_lc_event ev = xr_lc_event_from_session_state(seq[i]);
+        int rc = xr_lc_send(&lc, ev);
+        assert(rc == 0);
+        switch (seq[i]) {
+        case XR_SESSION_STATE_READY:
+            if (i == 0) {
+                assert(lc.state == XR_APP_RUNNING);
+                assert(lc.actions & XR_LC_ACT_BEGIN);
+                assert(lc.actions & XR_LC_ACT_ENQUEUE);
+                assert(xr_lc_should_render(&lc));
+            } else {
+                /* Re-signal while RUNNING: refresh the enqueue, no
+                 * duplicate begin. */
+                assert(lc.state == XR_APP_RUNNING);
+                assert(lc.actions == XR_LC_ACT_ENQUEUE);
+            }
+            break;
+        case XR_SESSION_STATE_IDLE:
+            /* IDLE maps to no event; state unchanged. */
+            assert(ev == 0);
+            assert(lc.state == XR_APP_RUNNING);
+            break;
+        case XR_SESSION_STATE_SYNCHRONIZED:
+            assert(lc.state == XR_APP_RUNNING);
+            assert(lc.actions & XR_LC_ACT_ENQUEUE);
+            break;
+        case XR_SESSION_STATE_STOPPING:
+            assert(lc.state == XR_APP_PAUSED);
+            assert(lc.actions & XR_LC_ACT_SUSPEND);
+            assert(!xr_lc_should_render(&lc));
+            break;
+        case XR_SESSION_STATE_EXITING:
+            assert(lc.state == XR_APP_EXITING);
+            assert(lc.actions & XR_LC_ACT_END);
+            assert(lc.actions & XR_LC_ACT_QUIT);
+            assert(xr_lc_should_exit(&lc));
+            break;
+        default:
+            assert(!"unexpected state in sequence");
+        }
+    }
+    /* CLOSING = 9 per the spec (the vendored header predates the
+     * enumerator). */
+    assert(xr_lc_send(&lc, xr_lc_event_from_session_state((XrSessionState)9)) == 0);
+    assert(lc.state == XR_APP_EXITED);
+    puts("fsm-seq ok");
+}
+
+/* The per-eye swapchain recreation trigger: recommended rect vs the
+ * current swapchain extent. */
+static void test_size_change(void) {
+    XrViewConfigurationView v = {0};
+    v.type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
+    v.recommendedImageRectWidth = 2048;
+    v.recommendedImageRectHeight = 2160;
+    assert(!xr_view_config_size_changed(&v, 2048, 2160));
+    assert(xr_view_config_size_changed(&v, 2048, 2159));
+    assert(xr_view_config_size_changed(&v, 1712, 2160));
+    /* Dynamic resolution drop (the Quest 3 resolution switch). */
+    v.recommendedImageRectWidth = 1640;
+    assert(xr_view_config_size_changed(&v, 1712, 2160));
+    puts("size ok");
+}
 int main(void) {
     test_quat();
     test_pose();
     test_matrices();
     test_fsm();
+    test_fsm_session_sequence();
+    test_size_change();
     test_quads();
     puts("all xr tests passed");
     return 0;

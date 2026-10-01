@@ -21,12 +21,16 @@ XROBJ  := $(VISION)/native/build/android-arm64-xr
 
 XR_INCLUDES := -I$(VISION)/third_party/openxr/include
 
+# NativeActivity glue (android_main.c includes <android_native_app_glue.h>).
+GLUE := $(NDK)/sources/android/native_app_glue
+
 # Device build: full XR shell with Vulkan.
 CFLAGS := -O2 -w -std=c11 -DENGINE_FLAT_MEMORY=1 -DHALO_ARM64_FENV_FAST=1 \
           -DXR_USE_PLATFORM_ANDROID=1 -DXR_USE_GRAPHICS_API_VULKAN=1 \
-          -I. -I$(SRC) -I$(VISION)/native/EngineReuse $(XR_INCLUDES)
+          -I. -I$(SRC) -I$(VISION)/native/EngineReuse -I$(GLUE) $(XR_INCLUDES)
 
-OBJS := $(XROBJ)/xr_shell.o $(XROBJ)/xr_quads.o $(XROBJ)/xr_lifecycle.o
+OBJS := $(XROBJ)/xr_shell.o $(XROBJ)/xr_quads.o $(XROBJ)/xr_lifecycle.o \
+        $(XROBJ)/android_main.o
 
 .PHONY: all test clean
 
@@ -41,18 +45,18 @@ $(XROBJ)/%.o: %.c xr.h $(XROBJ)
 $(XROBJ)/%.o: $(SRC)/%.c xr.h $(XROBJ)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Host unit tests: macOS clang, no OpenXR runtime.
+# Host unit tests: host clang (macOS) or gcc (halo-vk-dev container);
 # Compile the pure modules (xr_quads.c, xr_lifecycle.c, section 1 of
 # xr_shell.c) against the core OpenXR headers only; the runtime section
 # of xr_shell.c is guarded by XR_USE_GRAPHICS_API_VULKAN and never
 # compiled here.
-HOSTCC ?= clang
-HOSTCFLAGS := -O1 -g -std=c11 -Wall -Wextra -Wno-unused-parameter \
+HOSTCC ?= $(shell command -v clang >/dev/null 2>&1 && echo clang || echo gcc)
+HOSTCFLAGS := -O1 -g -std=gnu11 -Wall -Wextra -Wno-unused-parameter \
               -I. -I$(VISION)/third_party/openxr/include
 TEST_BIN := $(XROBJ)/xr_tests
 
 test: $(XROBJ)
-	$(HOSTCC) $(HOSTCFLAGS) -o $(TEST_BIN) xr_tests.c xr_quads.c xr_lifecycle.c xr_shell.c
+	$(HOSTCC) $(HOSTCFLAGS) -o $(TEST_BIN) xr_tests.c xr_quads.c xr_lifecycle.c xr_shell.c -lm
 	$(TEST_BIN)
 
 clean:

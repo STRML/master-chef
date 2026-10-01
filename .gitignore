@@ -57,3 +57,9 @@ native/EngineHost/android/halo-headless-static
 android/.gradle/
 android/**/build/
 android/local.properties
+
+# Local tooling, agent scratch, and NDK cache (hygiene skips by name;
+# these entries keep them out of git entirely)
+.scratch/
+.serena/
+tools/.cache/

@@ -72,43 +72,91 @@ static int xr_make_vulkan(xr_shell *s, const xr_shell_config *cfg) {
     rsi.poseInReferenceSpace.orientation = xr_quat_identity();
     XrResult r3 = xrCreateReferenceSpace(s->session, &rsi, &s->space);
     if (XR_FAILED(r3)) { xr_fail("xrCreateReferenceSpace", r3); return -1; }
+
+    /* 6. Bind the renderer to this runtime-recommended device. The
+     * per-eye swapchains (xr_make_eye_swapchain) and the engine's own
+     * backbuffer are then created on the same device, so the renderer's
+     * blit of the engine frame into a swapchain image is a same-device
+     * operation (a cross-device blit is invalid in Vulkan). */
+    if (mr_adopt_vulkan(s->vkInstance, s->vkPhysical, s->vkDevice, s->vkQueueFamily) != 0) {
+        xr_fail("mr_adopt_vulkan", XR_ERROR_RUNTIME_FAILURE); return -1;
+    }
     return 0;
 }
 
 /* Per-eye XR swapchain sized to the recommended view config rect,
  * B8G8R8A8_UNORM, colour-attachment usage via the META extension. */
+static int xr_make_eye_swapchain(xr_shell *s, int e) {
+    xr_eye *eye = &s->eye[e];
+    eye->width  = s->cfgViews[e].recommendedImageRectWidth;
+    eye->height = s->cfgViews[e].recommendedImageRectHeight;
+    XrSwapchainCreateInfo sci = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
+    sci.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT |
+                     XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
+    sci.format = VK_FORMAT_B8G8R8A8_UNORM;
+    sci.sampleCount = 1;
+    sci.width = eye->width;
+    sci.height = eye->height;
+    sci.faceCount = 1;
+    sci.arraySize = 1;
+    sci.mipCount = 1;
+    XrVulkanSwapchainCreateInfoMETA meta = {XR_TYPE_VULKAN_SWAPCHAIN_CREATE_INFO_META};
+    /* TRANSFER_DST: the renderer's mr_blit_target_to copies the engine
+     * frame into the swapchain image as a blit destination. The compositor
+     * reads it in COLOR_ATTACHMENT; the blit restores it there. */
+    meta.additionalUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    sci.next = &meta;
+    XrResult r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+    if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain", r); return -1; }
+    uint32_t n = 0;
+    r = xrEnumerateSwapchainImages(eye->swapchain, XR_MAX_IMAGES, &n,
+        (XrSwapchainImageBaseHeader*)eye->images);
+    if (XR_FAILED(r) || n == 0) { xr_fail("xrEnumerateSwapchainImages", r); return -1; }
+    eye->imageCount = n;
+    eye->renderer = mr_create((int)eye->width, (int)eye->height);
+    if (!eye->renderer) { xr_fail("mr_create", XR_ERROR_RUNTIME_FAILURE); return -1; }
+    /* The engine frame is stale against the new target; the next
+     * xr_shell_set_engine_frame resizes the renderer to the engine
+     * resolution again. */
+    s->engineW = s->engineH = 0;
+    return 0;
+}
+
 static int xr_make_swapchains(xr_shell *s) {
     uint32_t vc = 0;
     XrResult r = xrEnumerateViewConfigurationViews(s->instance, s->system,
         XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &vc, s->cfgViews);
     if (XR_FAILED(r) || vc < 2) { xr_fail("xrEnumerateViewConfigurationViews", r); return -1; }
+    for (int e = 0; e < 2; e++)
+        if (xr_make_eye_swapchain(s, e) != 0) return -1;
+    return 0;
+}
+
+/* XR swapchain size change: re-enumerate the view configuration and
+ * rebuild any eye whose recommended image rect changed (dynamic
+ * resolution / refresh-rate switches on Quest; the OpenXR spec has no
+ * dedicated event, so apps re-check the recommended rect). */
+static int xr_check_view_config(xr_shell *s) {
+    XrViewConfigurationView views[2];
+    uint32_t vc = 0;
+    XrResult r = xrEnumerateViewConfigurationViews(s->instance, s->system,
+        XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &vc, views);
+    if (XR_FAILED(r) || vc < 2) { xr_fail("xrEnumerateViewConfigurationViews", r); return -1; }
     for (int e = 0; e < 2; e++) {
+        if (views[e].recommendedImageRectWidth == s->eye[e].width &&
+            views[e].recommendedImageRectHeight == s->eye[e].height)
+            continue;
         xr_eye *eye = &s->eye[e];
-        eye->width  = s->cfgViews[e].recommendedImageRectWidth;
-        eye->height = s->cfgViews[e].recommendedImageRectHeight;
-        XrSwapchainCreateInfo sci = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
-        sci.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT |
-                         XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
-        sci.format = VK_FORMAT_B8G8R8A8_UNORM;
-        sci.sampleCount = 1;
-        sci.width = eye->width;
-        sci.height = eye->height;
-        sci.faceCount = 1;
-        sci.arraySize = 1;
-        sci.mipCount = 1;
-        XrVulkanSwapchainCreateInfoMETA meta = {XR_TYPE_VULKAN_SWAPCHAIN_CREATE_INFO_META};
-        meta.additionalUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        sci.next = &meta;
-        r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
-        if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain", r); return -1; }
-        uint32_t n = 0;
-        r = xrEnumerateSwapchainImages(eye->swapchain, XR_MAX_IMAGES, &n,
-            (XrSwapchainImageBaseHeader*)eye->images);
-        if (XR_FAILED(r) || n == 0) { xr_fail("xrEnumerateSwapchainImages", r); return -1; }
-        eye->imageCount = n;
-        eye->renderer = mr_create((int)eye->width, (int)eye->height);
-        if (!eye->renderer) { xr_fail("mr_create", XR_ERROR_RUNTIME_FAILURE); return -1; }
+        fprintf(stderr, "[xr] eye %d swapchain resize %ux%u -> %ux%u\n",
+                e, eye->width, eye->height,
+                views[e].recommendedImageRectWidth,
+                views[e].recommendedImageRectHeight);
+        if (eye->renderer) { mr_destroy(eye->renderer); eye->renderer = NULL; }
+        if (eye->swapchain) { xrDestroySwapchain(eye->swapchain); eye->swapchain = XR_NULL_HANDLE; }
+        s->cfgViews[e] = views[e];
+        if (xr_make_eye_swapchain(s, e) != 0) return -1;
     }
     return 0;
 }
@@ -204,6 +252,7 @@ int xr_shell_frame(xr_shell *s) {
             NULL, fs.predictedDisplayTime, XR_ENVIRONMENT_BLEND_MODE_OPAQUE, 0, NULL});
         return 1;
     }
+    if (xr_check_view_config(s) != 0) return -1;
     if (xr_locate_views(s, fs.predictedDisplayTime) != 0) return -1;
 
     for (int e = 0; e < 2; e++) {
@@ -216,14 +265,14 @@ int xr_shell_frame(xr_shell *s) {
         r = xrWaitSwapchainImage(eye->swapchain, &wi);
         if (XR_FAILED(r)) { xr_fail("xrWaitSwapchainImage", r); return -1; }
         /* The engine's D3D shim draws into its offscreen target; the
-         * shell copies it into the eye image through the renderer
-         * contract (mr_blit_target_to / mr_fxaa_target_to). */
-        if (s->engine_target && eye->renderer) {
-            int b = mr_fxaa_target_to(eye->renderer, (void*)eye->images[idx].image, 0.0f);
-            if (b != 0) {
-                b = mr_blit_target_to(eye->renderer, (void*)eye->images[idx].image);
-                if (b != 0) { xr_fail("mr_blit_target_to", XR_ERROR_RUNTIME_FAILURE); return -1; }
-            }
+         * shell stretches it into the full swapchain image (GPU bilinear)
+         * so the compositor sees the frame at any engine resolution.
+         * The renderer's blit transitions the swapchain UNDEFINED->DST
+         * and restores it to COLOR_ATTACHMENT for the compositor. */
+        if (eye->renderer && (s->engine_target || s->engineW > 0)) {
+            int b = mr_blit_target_to_scaled(eye->renderer, (void*)eye->images[idx].image,
+                                             eye->width, eye->height);
+            if (b != 0) { xr_fail("mr_blit_target_to", XR_ERROR_RUNTIME_FAILURE); return -1; }
         }
         XrSwapchainImageReleaseInfo rel = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         r = xrReleaseSwapchainImage(eye->swapchain, &rel);
@@ -366,4 +415,45 @@ xr_shell *xr_shell_create(const xr_shell_config *cfg) {
         s->sessionBegun = true;
     }
     return s;
+}
+
+/* ---- activity bridge (android_main.c) ---- */
+
+XrInstance xr_shell_instance(const xr_shell *s) { return s ? s->instance : XR_NULL_HANDLE; }
+XrSession  xr_shell_session(const xr_shell *s)  { return s ? s->session  : XR_NULL_HANDLE; }
+
+void xr_shell_send_lc_event(xr_shell *s, xr_lc_event ev) {
+    if (!s) return;
+    xr_lc_send(&s->lc, ev);
+    if (s->lc.actions & XR_LC_ACT_QUIT) xr_shell_request_exit(s);
+}
+
+int xr_shell_should_exit(const xr_shell *s) { return s && xr_lc_should_exit(&s->lc); }
+
+/* Upload the newest engine frame (BGRA8) into each eye's render
+ * target. The eye renderers are resized to the engine resolution
+ * (the projection layer's imageRect keeps the XR swapchain extent, so
+ * the compositor scales the content). Called from the XR render
+ * thread, before xr_shell_frame. */
+int xr_shell_set_engine_frame(xr_shell *s, const void *bgra, int width, int height) {
+    if (!s || !bgra || width <= 0 || height <= 0) return -1;
+    size_t need = (size_t)width * (size_t)height * 4;
+    if (s->engineW != width || s->engineH != height) {
+        for (int e = 0; e < 2; e++) {
+            if (!s->eye[e].renderer) return -1;
+            if (mr_resize(s->eye[e].renderer, width, height) != 0) {
+                xr_fail("mr_resize", XR_ERROR_RUNTIME_FAILURE);
+                return -1;
+            }
+        }
+        s->engineW = width;
+        s->engineH = height;
+    }
+    for (int e = 0; e < 2; e++) {
+        if (mr_write_framebuffer(s->eye[e].renderer, bgra, need) != MR_OK) {
+            xr_fail("mr_write_framebuffer", XR_ERROR_RUNTIME_FAILURE);
+            return -1;
+        }
+    }
+    return 0;
 }

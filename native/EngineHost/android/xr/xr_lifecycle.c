@@ -21,6 +21,10 @@ void xr_lc_init(xr_lc *lc) {
  * -> CLOSING -> EXITING; the runtime drives the session, the app
  * reacts to focus loss and back. */
 xr_lc_event xr_lc_event_from_session_state(XrSessionState s) {
+    /* CLOSING and DESTROYED are terminal teardown states; both map to the
+     * same closing event. The Meta runtime sends them during teardown. */
+    if (s == XR_SESSION_STATE_CLOSING || s == XR_SESSION_STATE_DESTROYED)
+        return XR_LC_SESSION_CLOSING;
     switch (s) {
     case XR_SESSION_STATE_READY:          return XR_LC_SESSION_READY;
     case XR_SESSION_STATE_SYNCHRONIZED:
@@ -75,7 +79,7 @@ int xr_lc_send(xr_lc *lc, xr_lc_event ev) {
             lc->actions = XR_LC_ACT_SUSPEND | XR_LC_ACT_QUIT;
             return 0;
         }
-        if (ev == XR_LC_SESSION_RUNNING) {
+        if (ev == XR_LC_SESSION_RUNNING || ev == XR_LC_SESSION_READY) {
             lc->actions = XR_LC_ACT_ENQUEUE;
             return 0;
         }
@@ -87,7 +91,13 @@ int xr_lc_send(xr_lc *lc, xr_lc_event ev) {
             lc->focused = true;
             return 0;
         }
-        if (ev == XR_LC_SESSION_STOPPING || ev == XR_LC_QUIT) {
+        if (ev == XR_LC_SESSION_READY) {
+            lc->state = XR_APP_RUNNING;
+            lc->actions = XR_LC_ACT_BEGIN | XR_LC_ACT_ENQUEUE;
+            lc->focused = true;
+            return 0;
+        }
+        if (ev == XR_LC_SESSION_STOPPING || ev == XR_LC_SESSION_EXITING || ev == XR_LC_QUIT) {
             lc->state = XR_APP_EXITING;
             lc->actions = XR_LC_ACT_END | XR_LC_ACT_QUIT;
             return 0;

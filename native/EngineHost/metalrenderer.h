@@ -339,6 +339,10 @@ uint32_t mr_target_texture(mr_context *ctx);
  * MTLTexture (same device, same size and format), ordered behind every
  * pending draw. Nothing waits for the GPU. */
 int mr_blit_target_to(mr_context *ctx, void *mtl_texture);
+/* Same copy stretched to an arbitrary destination extent (GPU bilinear
+ * scale). The XR shell uses this to fill the full swapchain image when
+ * the engine resolution differs from the recommended eye resolution. */
+int mr_blit_target_to_scaled(mr_context *ctx, void *dst, uint32_t dst_w, uint32_t dst_h);
 /* The same copy through FXAA; falls back to the plain blit when the texture
  * cannot be rendered to or the pipeline is unavailable. */
 int mr_fxaa_target_to(mr_context *ctx, void *mtl_texture, float subpix);
@@ -354,6 +358,12 @@ int mr_commit_async(void (*done)(void *arg, int ok), void *arg);
 const char *mr_last_commit_error(void);
 /* The shared MTLDevice as an unretained id<MTLDevice>, or NULL. */
 void *mr_shared_device(void);
+/* Vulkan: bind the renderer to an externally created instance + logical
+ * device (the OpenXR runtime's recommended device) so the per-eye
+ * swapchain images are the same device the renderer blits into. Must be
+ * called before the first mr_create; otherwise the renderer creates its
+ * own instance + device (headless lavapipe). Returns 0 on success. */
+int mr_adopt_vulkan(void *instance, void *physical, void *device, uint32_t queue_family);
 
 /* Number of triangles drawn since creation (diagnostics). */
 uint64_t mr_triangles_drawn(const mr_context *ctx);

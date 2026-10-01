@@ -154,13 +154,14 @@ void xr_lc_init(xr_lc *lc);
  *   NEW       + SESSION_READY   -> RUNNING   (BEGIN|ENQUEUE)
  *   READY     + SESSION_RUNNING -> RUNNING   (ENQUEUE)
  *   READY     + QUIT            -> EXITING   (QUIT)
+ *   RUNNING   + SESSION_READY -> RUNNING   (ENQUEUE; runtime re-signal)
  *   RUNNING   + FOCUS_LOST      -> PAUSED    (SUSPEND)
  *   RUNNING   + SESSION_STOPPING-> PAUSED    (SUSPEND)
  *   RUNNING   + QUIT            -> EXITING   (SUSPEND|QUIT)
  *   PAUSED    + FOCUS_GAINED    -> RUNNING   (ENQUEUE)
- *   PAUSED    + SESSION_RUNNING -> RUNNING   (ENQUEUE)
+ *   PAUSED    + SESSION_READY   -> RUNNING   (BEGIN|ENQUEUE; session restarted)
  *   PAUSED    + SESSION_STOPPING-> EXITING   (END|QUIT)
- *   PAUSED    + QUIT            -> EXITING   (END|QUIT)
+ *   PAUSED    + SESSION_EXITING-> EXITING   (END|QUIT)
  *   EXITING   + SESSION_CLOSING -> EXITED    (QUIT)
  *   EXITING   + QUIT            -> EXITED    (QUIT)
  *   any       + INSTANCE_LOSS   -> EXITING   (END|QUIT)
@@ -273,6 +274,37 @@ void xr_shell_request_exit(xr_shell *shell);
 const char *xr_shell_last_error(void);
 /* The head-space pose of the most recent frame (for quad anchoring). */
 XrPosef xr_shell_head_pose(const xr_shell *shell);
+
+/* Activity bridge (android_main.c). The shell is opaque in this header;
+ * these expose just enough for the NativeActivity pump without leaking
+ * the struct. */
+/* The XR handles for xr_input_attach (NULL handles before the session
+ * exists). */
+XrInstance xr_shell_instance(const xr_shell *shell);
+XrSession  xr_shell_session(const xr_shell *shell);
+/* Feed one lifecycle event (focus gain/loss, back) into the FSM. */
+void xr_shell_send_lc_event(xr_shell *shell, xr_lc_event ev);
+/* True when the FSM wants the loop torn down. */
+int xr_shell_should_exit(const xr_shell *shell);
+/*
+ * Hand the newest engine frame (BGRA8, tightly packed, row 0 = top) to
+ * the per-eye swapchains. Call from the XR render thread before
+ * xr_shell_frame; the upload resizes the eye render targets to the
+ * engine resolution, and the projection layer's imageRect keeps the
+ * XR swapchain extent so the compositor scales the content.
+ * Returns 0 on success, -1 on a bad argument or failed upload.
+ */
+int xr_shell_set_engine_frame(xr_shell *shell, const void *bgra, int width, int height);
+
+/* True when the recommended image rect of one view configuration
+ * entry differs from the current swapchain size (w, h): the XR
+ * swapchain size-change event, seen by re-enumerating the view
+ * configuration; the per-eye swapchain must be recreated. */
+static inline int xr_view_config_size_changed(const XrViewConfigurationView *v,
+                                              uint32_t w, uint32_t h) {
+    return v->recommendedImageRectWidth != w ||
+           v->recommendedImageRectHeight != h;
+}
 
 #ifdef __cplusplus
 }

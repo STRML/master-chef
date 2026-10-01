@@ -2,9 +2,10 @@
 // headless NDK build in native/EngineHost/android (see ../Makefile):
 //
 //   libhaloquest.so  - NativeActivity entry: engine + Vulkan renderer +
-//                      OpenXR shell (built by the phase 3/4 Makefile target)
-//   libopenxr.so     - OpenXR loader staged into jniLibs by the Quest
-//                      setup stage (third_party/openxr; never committed)
+//                      OpenXR shell (built by the phase 3/4 Makefile target);
+//                      android_main dlopens the QVR runtime's
+//                      libopenxr_loader.so at startup, so no OpenXR loader
+//                      is packaged (third_party/openxr is headers-only).
 //
 // There is deliberately no Java/Kotlin source (android:hasCode="false")
 // and no game data in this module: game files are pushed to

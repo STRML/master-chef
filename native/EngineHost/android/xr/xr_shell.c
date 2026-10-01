@@ -207,6 +207,7 @@ struct xr_shell {
     XrEnvironmentBlendMode blend;
     xr_lc lc;
     mr_context *engine_target;
+    int engineW, engineH;         /* newest engine frame dimensions   */
 };
 
 static void xr_bind_ext_fns(XrInstance inst) {
@@ -224,7 +225,11 @@ static int xr_make_instance(xr_shell *s, const xr_shell_config *cfg) {
     snprintf(ici.applicationInfo.engineName,
              XR_MAX_ENGINE_NAME_SIZE, "%s", "halo-ce-compat");
     ici.applicationInfo.engineVersion = 1;
-    ici.applicationInfo.apiVersion = XR_CURRENT_API_VERSION;
+    /* Request the 1.0 API: a runtime that only implements OpenXR 1.0
+     * (XR_CURRENT_API_VERSION here is 1.1.x) rejects the instance with
+     * XR_ERROR_API_VERSION_UNSUPPORTED. Everything the shell uses is
+     * 1.0 core + the enable2/ANDROID/META extensions. */
+    ici.applicationInfo.apiVersion = XR_API_VERSION_1_0;
     XrInstanceCreateInfoAndroidKHR android = {XR_TYPE_INSTANCE_CREATE_INFO_ANDROID_KHR};
     android.applicationVM = cfg->application_vm;
     android.applicationActivity = cfg->application_activity;

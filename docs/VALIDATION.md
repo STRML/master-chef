@@ -1,4 +1,154 @@
-# Source-release validation
+# Validation
+
+> The Quest 3 checklist below (issue #1, Phase 7) is the live completion
+> artifact for the port. Captures referenced as `.scratch/validation/*` are
+> real files in the working tree; their SHA-256 was computed with
+> `shasum -a 256` on 2026-10-01. Device rows are marked ⚠ needs device:
+> no Quest 3 was attached when recorded (`~/Library/Android/sdk/platform-tools/adb
+> devices` → `List of devices attached`, rc=0; adb 37.0.1 present, not on
+> PATH). Toolchain state as of 2026-10-01 (post-SdkBootstrap):
+> SDK at `~/Library/Android/sdk` (platforms;android-34,
+> build-tools;34.0.0, licenses accepted rc=0), gradle 9.8.0 at
+> `/opt/homebrew/bin/gradle`, `apksigner` at
+> `~/Library/Android/sdk/build-tools/34.0.0/apksigner` (needs
+> `JAVA_HOME=/opt/homebrew/opt/openjdk@17`).
+
+## Quest 3 on-device validation checklist (issue #1, Phase 7)
+
+- [x] **CPU-only regression trace**
+  - Command (host, arm64-native inside the lavapipe container — this is the
+    trace gate; `qemu-aarch64` user-mode is **not** installed on this Mac,
+    `which qemu-aarch64` rc=1):
+    `docker run --rm --platform linux/arm64 -v "$PWD:/work" -w /work halo-vk-dev ./native/EngineHost/android/halo-headless-static ./game --frames 60`
+  - Capture: text log → `.scratch/validation/cpu-trace-60f.log`
+    sha256 `3dc45703a583a27ca3d1a00277de112e21a4b9451933872b582b8866f799376f`
+    (2122 lines). Binary under test
+    `native/EngineHost/android/halo-headless-static`
+    sha256 `207df6c5a4b25eb6298cb69b96c0a3c4a4304e6c2786a98c1ac427165e27688c`.
+  - Evidence: `[host] d3d9 Present: frame 60 (7434 draw calls)`
+    (log line 2113), `[host] headless run finished rc=0` (line 2121),
+    observed rc=0, 3.99 s wall (re-run by ValidationDoc; integrator run
+    4.47 s).
+  - Status: **PASS on host** (docker linux/arm64). On-device execution is
+    ⚠ needs device; the host trace is the CPU regression gate.
+
+- [ ] **Main menu renders stereo**
+  - Command (device):
+    `adb shell am start -n com.masterchef.haloquest/android.app.NativeActivity`
+    then per-eye capture
+    `adb exec-out screencap -p > .scratch/validation/menu-left.png`
+    (right eye via headset view capture; log stream
+    `adb logcat -s haloquest > .scratch/validation/menu.log`).
+  - Capture: PNG (screencap) + logcat text, each sha256-recorded.
+  - Status: ⚠ needs device. Headless proxy for the render surface is the
+    Vulkan row below (lavapipe mono framebuffer, not stereo); stereo
+    presentation requires the OpenXR shell on hardware (OpenXRShell lane).
+
+- [ ] **First level 10 minutes no crash**
+  - Command (device): start level from menu, then
+    `adb logcat -b crash -T 0 > .scratch/validation/level10min-crash.log`
+    for 600 s; crash-free iff the log is empty and
+    `adb shell dumpsys activity processes | grep -c haloquest` stays ≥1.
+  - Capture: logcat text + `dumpsys gfxinfo com.masterchef.haloquest`
+    snapshot, each sha256-recorded.
+  - Status: ⚠ needs device.
+
+- [ ] **72Hz in combat scenes**
+  - Command (device):
+    `adb shell dumpsys gfxinfo com.masterchef.haloquest framestats > .scratch/validation/combat-framestats.txt`
+    during a combat scene; pass iff the OpenXR app is running the 72 Hz
+    refresh profile (`adb shell dumpsys display | grep -i 'mRefreshRate\|72'`)
+    and gfxinfo frame times stay under 13.9 ms p95.
+  - Capture: gfxinfo text + display-state text, sha256-recorded.
+  - Status: ⚠ needs device. The lavapipe container is a software rasterizer
+    and cannot evidence headset frame rate.
+
+- [ ] **Audio without underruns**
+  - Command (device):
+    `adb logcat -s AudioTrack AAudio haloquest > .scratch/validation/audio.log`
+    during gameplay; pass iff no `underrun`/`AudioTrack.*blocking` events
+    and the port's own queue watchdog never rebuilds
+    (`grep -c 'watchdog.*rebuilt' audio.log` == 0).
+  - Capture: logcat text, sha256-recorded.
+  - Status: ⚠ needs device. Host CPU-trace context: DirectSound stub logs
+    `DirectSound output started: stereo float PCM at 48000 Hz` and two
+    `[audio-watchdog] ... rebuilt the queue` rebuilds with
+    `[audio-result] frames=0 nonzero=0` (expected on the stubbed CPU-only
+    path — silent by design, not an audible-output test). AAudio sink work
+    lives in the AaudioOutput lane.
+
+- [ ] **Controller movement/aim/fire/menus**
+  - Command (device): with Touch controllers connected,
+    `adb shell getevent -l > .scratch/validation/controller-getevent.log`
+    while exercising stick-move, aim, trigger-fire and menu select per
+    `docs/CONTROLS.md`; pass iff each action produces the mapped
+    `KEY_*/ABS_*` events **and** the game responds on screen (screencap
+    diff). Input bridge log:
+    `adb logcat -s haloquest > .scratch/validation/controller-game.log`.
+  - Capture: getevent text + per-action PNG, sha256-recorded.
+  - Status: ⚠ needs device. Host trace shows the guest input calls reach
+    the shim (`dinput8.dll!IDirectInputDevice8A::GetDeviceState/GetDeviceData`
+    in cpu-trace-60f.log) — wiring evidence only.
+
+- [ ] **Hygiene check**
+  - Command (host): `python3 tools/check_repository_hygiene.py`
+  - Capture: text report → `.scratch/validation/hygiene.out`
+    sha256 `39f40cbbb9b51c17f9a223092bb02de4198294a413dcb9f404830d433d3aea32`
+    (4604 lines).
+  - Status: **FAIL on the current working tree** — observed 2026-10-01:
+    rc=1, `FAIL: 8936 source files checked; 4603 findings`. Breakdown:
+    4590 findings under `tools/.cache/` (local NDK r27c cache +
+    `ndk.zip`, untracked build cache), 4 under `native/` (staged headless
+    binaries), 2 under `.scratch/` (lane work). The gate is a PASS on the
+    release tree with caches excluded; resolving tracked-path findings is
+    the QuestStage integrator's cutover. Row flips on a `PASS` capture.
+
+- [ ] **Report distinguishes preparation / compilation / signing / install / launch / gameplay**
+  - This section is that report; per-phase commands and current evidence:
+    | Phase | Command | Evidence (observed 2026-10-01) | Status |
+    | --- | --- | --- | --- |
+    | Preparation | `python3 tools/setup_halo.py --stage Quest --dry-run` | rc=0; prints the 4 build/install steps, pushes game payload path `/sdcard/Android/data/com.masterchef.haloquest/files/game`; capture `.scratch/validation/quest_dry.out` sha256 `1481021fb8be9cf11277a380b71acbccf591d11fdd515c6caf6d08f0fbc0e515` | **PROVEN (dry-run, nothing executed)** |
+    | Compilation | `make -C native/EngineHost/android -j 30 jniLibs` | `native/build/android-arm64/apk/jniLibs/arm64-v8a/libhaloquest.so` staged, sha256 `43a57d1dc80a96a774ef4d45b56caed334ec3f1bae40aead9bf295ecf72ceb82`; headless artifacts built (see rows above) | **DONE for native libs** |
+    | Signing | `JAVA_HOME=/opt/homebrew/opt/openjdk@17 ~/Library/Android/sdk/build-tools/34.0.0/apksigner verify --print-certs <apk>` | **PROVEN** in sandbox `~/Library/Android/lanebuild`: gradle assembleDebug rc=0 produced `app-debug.apk` 14,599,490 B sha256 `44c4616b53d3cc6eaaabedf0f61c022200970bcfcf0445e9b7b9be61fa2a385d`; apksigner verify rc=0, Signer #1 `CN=Android Debug` cert sha256 `3ce0c4b0899c571fb403d738336ff13c1f3c2aadf5e4c109327aa186fae9992c`; capture `.scratch/validation/apk-verify.txt` sha256 recorded below. Repo build blocked until QuestStage fixes manifest `--`/`android:hwVulkan` + settings.gradle pluginManagement (use `gradle -I ~/Library/Android/init-agp.gradle` meanwhile) | **APK debug-signing PROVEN (sandbox); repo build blocked** |
+    | Install | `adb install -r android/app/build/outputs/apk/debug/app-debug.apk` | adb 37.0.1 functional (`adb devices` rc=0) but `List of devices attached` empty — no Quest 3 plugged in | ⚠ needs device |
+    | Launch | `adb shell am start -n com.masterchef.haloquest/android.app.NativeActivity` | no device attached | ⚠ needs device |
+    | Gameplay | device rows above (stereo menu, 10-min level, 72 Hz, audio, controllers) | no device attached | ⚠ needs device |
+
+### Headless Vulkan (lavapipe) — prerequisite gate for the device rows
+
+- [x] **Vulkan headless 60 frames on lavapipe**
+  - Command (host, docker):
+    `docker run --rm --platform linux/arm64 -v "$PWD:/work" -w /work/native/build/vk-obj halo-vk-dev ./halo-headless-vk /work/game --frames 60`
+  - Capture: text log → `.scratch/validation/vk-60f.log` sha256
+    `b4fb07ca45bbc248490afbd757a8c8a31f5fe929365350aa5874d50c9472b3dc`.
+    Binary under test `native/build/vk-obj/halo-headless-vk` sha256
+    `09e5fcac3d93dd811f12a38994b2f836b51fd31f91856bdee0a6c8d12cbae26e`
+    (built 2026-10-01 16:12).
+  - Status: **PASS (2026-10-01)** — rc=0, 60 frames, 7198 engine draw
+    calls, `VK_LAYER_KHRONOS_validation` enabled by the renderer: 0
+    validation errors, 0 warnings, 0 crashes. The frame-2 segfault
+    (`0x52CDB6`) was fixed by the `VK_NO_PROTOTYPES` correction (defining
+    it to 0 still strips prototypes; the loader pointer was sign-extended
+    on LP64) in `vulkanrenderer.c`; the `copy_to_image` queue-as-command-
+    buffer bug was fixed in the same pass.
+
+- [x] **Vulkan renderer pixel gates (lavapipe)**
+  - Command (host, docker):
+    `docker run --rm --platform linux/arm64 -v "$PWD:/w" -w /w halo-vk-dev`
+    `bash -c 'gcc -O1 -g -std=gnu11 -w -I native/EngineHost native/EngineHost/android/vkdev/vk_pixel_test.c native/EngineHost/vulkanrenderer.c -o /tmp/vk_pixel_test -lvulkan -lm && VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.aarch64.json /tmp/vk_pixel_test'`
+  - Source: `native/EngineHost/android/vkdev/vk_pixel_test.c`.
+  - Status: **PASS (2026-10-01)** — 4/4 gates: clear→red across all 256 px;
+    textured quad (white texel x green diffuse = green); alpha-test discard
+    (128/255 < 200 -> blue clear survives); 16x16->32x32 GPU stretch blit
+    fills all 1024 px including corner (31,31), proving the swapchain
+    blit path. Zero validation errors under the renderer's own
+    `VK_LAYER_KHRONOS_validation`.
+
+## Legacy: 1.0.x visionOS source-release validation
+
+The sections below are the historical record for the 1.0.0–1.0.3
+visionOS/macOS source releases; they are not evidence for the Quest 3
+checklist above.
 
 ## 1.0.3 complete packaging update
 

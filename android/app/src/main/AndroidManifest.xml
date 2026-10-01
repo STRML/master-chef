@@ -2,9 +2,9 @@
 <!-- Quest 3 (Android arm64) manifest for the Halo PC port.
      The app is a NativeActivity hosting libhaloquest.so, which runs the
      translated engine behind the Vulkan renderer and the OpenXR shell
-     (native/EngineHost/android). The OpenXR loader is packaged as a
-     prebuilt JNI library (libopenxr.so) staged by the Quest setup stage;
-     nothing here, and nothing in the APK, contains original game data.
+     (native/EngineHost/android). The OpenXR loader is dlopened from the
+     QVR runtime at startup; nothing here, and nothing in the APK, contains
+     original game data.
      Game payload is pushed to app-specific external storage at runtime
      (see the Quest setup stage), so no storage permissions are declared. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
