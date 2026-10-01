@@ -89,6 +89,14 @@ $(OBJ)/%.o: %.c $(SRC)/metalrenderer.h $(SRC)/gamecontroller.h $(SRC)/metalwin.h
 $(OBJ)/main.o: main.c $(SRC)/host.h | $(OBJ)
 	$(CC) $(CFLAGS) -c main.c -o $@
 
+# Static variant: no PT_INTERP, no NEEDED libs, so qemu-aarch64 user-mode
+# runs it directly without an Android rootfs (the NDK sysroot ships link-time
+# stubs, not the runtime bionic linker64/libc.so/libm.so/libdl.so). Used to
+# smoke-run the CPU translation loop on the build host.
+halo-headless-static: $(OBJS)
+	$(CC) -O2 -no-pie -static -o $@ $(OBJS) -lm
+	@file $@
+
 halo-headless: $(OBJS)
 	$(CC) -O2 -o $@ $(OBJS) -lm -latomic
 	@file $@

@@ -147,7 +147,13 @@ static int draw_common(mr_context *ctx, int primitive, const void *vertices,
     (void)vertex_stride;
     if (!ctx) return MR_ERR_DEVICE;
     if (!vertices || vertex_count == 0) return MR_ERR_ARGS;
-    if (indices16 && index_count % 3) return MR_ERR_BOUNDS;
+    /* Bounds: every index must address a drawn vertex. Triangle strips and
+     * line lists legitimately have index_count not a multiple of three, so
+     * the only rejection is a genuinely out-of-range index. */
+    if (indices16 && index_count) {
+        for (uint32_t i = 0; i < index_count; i++)
+            if (indices16[i] >= vertex_count) return MR_ERR_BOUNDS;
+    }
     count_tris(ctx, primitive, vertex_count, index_count);
     return MR_OK;
 }
