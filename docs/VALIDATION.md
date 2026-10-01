@@ -116,17 +116,21 @@
   - Command (host, docker):
     `docker run --rm --platform linux/arm64 -v "$PWD:/work" -w /work/native/build/vk-obj halo-vk-dev ./halo-headless-vk /work/game --frames 60`
   - Capture: text log → `.scratch/validation/vk-60f.log` sha256
-    `b4fb07ca45bbc248490afbd757a8c8a31f5fe929365350aa5874d50c9472b3dc`.
+    `280e727b12399dbc40257911290a905de433ed57295e3d3bd95cbc7e91c85fa1`.
     Binary under test `native/build/vk-obj/halo-headless-vk` sha256
-    `09e5fcac3d93dd811f12a38994b2f836b51fd31f91856bdee0a6c8d12cbae26e`
-    (built 2026-10-01 16:12).
-  - Status: **PASS (2026-10-01)** — rc=0, 60 frames, 7198 engine draw
-    calls, `VK_LAYER_KHRONOS_validation` enabled by the renderer: 0
-    validation errors, 0 warnings, 0 crashes. The frame-2 segfault
-    (`0x52CDB6`) was fixed by the `VK_NO_PROTOTYPES` correction (defining
-    it to 0 still strips prototypes; the loader pointer was sign-extended
-    on LP64) in `vulkanrenderer.c`; the `copy_to_image` queue-as-command-
-    buffer bug was fixed in the same pass.
+    `5a259e32be2983c46a7f942028c79435cb55be5b4763b83cd3a862efc11afe90`
+    (built 2026-10-01 16:40).
+  - Status: **PASS (2026-10-01)** — rc=0, 60 frames, 7434 engine draw
+    calls, 0 unsupported draws, `VK_LAYER_KHRONOS_validation` enabled by
+    the renderer: 0 validation errors, 0 warnings, 0 crashes. The frame-2
+    segfault (`0x52CDB6`) was fixed by the `VK_NO_PROTOTYPES` correction
+    (defining it to 0 still strips prototypes; the loader pointer was
+    sign-extended on LP64) in `vulkanrenderer.c`; the `copy_to_image`
+    queue-as-command-buffer bug was fixed in the same pass. The 24
+    per-frame "texture upload" drops (a 64x64 DXT1 cube map, the level's
+    environment map) were fixed by implementing `mr_texture_create_cube_cached`
+    (the 6 faces flattened into a 6x1 vertical strip, matching the
+    renderer's 2D-only pipeline).
 
 - [x] **Vulkan renderer pixel gates (lavapipe)**
   - Command (host, docker):

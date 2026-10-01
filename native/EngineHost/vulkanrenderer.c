@@ -129,6 +129,7 @@ VK_PFN(vkDestroyPipelineLayout)
 VK_PFN(vkDestroySampler)
 VK_PFN(vkGetPhysicalDeviceMemoryProperties)
 VK_PFN(vkGetPhysicalDeviceFormatProperties)
+VK_PFN(vkGetPhysicalDeviceProperties)
 VK_PFN(vkResetCommandBuffer)
 VK_PFN(vkFreeCommandBuffers)
 
@@ -156,7 +157,7 @@ static void load_instance_pfn(void) {
     L(vkDestroyDescriptorPool) L(vkDestroyDescriptorSetLayout)
     L(vkDestroyPipelineLayout) L(vkGetPhysicalDeviceMemoryProperties)
     L(vkGetPhysicalDeviceFormatProperties) L(vkResetCommandBuffer)
-    L(vkFreeCommandBuffers)
+    L(vkFreeCommandBuffers) L(vkGetPhysicalDeviceProperties)
 #undef L
 }
 #define VK(x) do { VkResult r_ = (x); if (r_ != VK_SUCCESS) { \
@@ -1028,7 +1029,29 @@ static void copy_to_image(vk_tex *t, VkBuffer src, uint32_t layers, uint32_t pit
 uint32_t mr_texture_find_cached(mr_context *c, uint64_t key) { (void)c; for (uint32_t i = 1; i < MR_MAX_TEX; i++) if (g_textures[i] && g_texture_keys[i] == key) return i; return 0; }
 uint32_t mr_texture_create_cached(mr_context *c, uint64_t key, int w, int h, const void *bgra, size_t pitch) { uint32_t id = mr_texture_create(c, w, h, bgra, pitch); if (id) g_texture_keys[id] = key; return id; }
 uint32_t mr_texture_create_cached_nomip(mr_context *c, uint64_t key, int w, int h, const void *bgra, size_t pitch) { return mr_texture_create_cached(c, key, w, h, bgra, pitch); }
-uint32_t mr_texture_create_cube_cached(mr_context *c, uint64_t key, int edge, const void *faces[6], size_t pitch) { (void)c; (void)key; (void)edge; (void)faces; (void)pitch; return 0; }
+/* The renderer's pipeline samples only the stage-0 texture through a 2D
+ * view, so a cube map is flattened into a 6x1 vertical strip of its faces
+ * (D3D order: +X,-X,+Y,-Y,+Z,-Z). The draw is accepted, the texture is
+ * cached under its content key, and no cube view is ever bound, so the
+ * sampler/view-type validation rules cannot be violated. */
+uint32_t mr_texture_create_cube_cached(mr_context *c, uint64_t key, int edge, const void *faces[6], size_t pitch) {
+    uint32_t hit = mr_texture_find_cached(c, key); if (hit) return hit;
+    if (!key || edge <= 0 || !faces || pitch < (size_t)edge * 4) return 0;
+    VkPhysicalDeviceProperties props; p_vkGetPhysicalDeviceProperties(g_phys, &props);
+    if (edge > (int)props.limits.maxImageDimension2D / 6) return 0;
+    size_t face_bytes = (size_t)edge * edge * 4;
+    uint8_t *strip = malloc(face_bytes * 6);
+    if (!strip) return 0;
+    for (int f = 0; f < 6; f++) {
+        if (!faces[f]) { free(strip); return 0; }
+        for (int y = 0; y < edge; y++) memcpy(strip + ((size_t)f * edge + y) * edge * 4,
+                                              (const uint8_t *)faces[f] + y * pitch, edge * 4);
+    }
+    uint32_t id = mr_texture_create(c, edge, edge * 6, strip, edge * 4);
+    free(strip);
+    if (id) g_texture_keys[id] = key;
+    return id;
+}
 uint32_t mr_texture_create_volume_cached(mr_context *c, uint64_t key, int w, int h, int d, const void *bgra, size_t pitch, size_t slice) { (void)c; (void)key; (void)w; (void)h; (void)d; (void)bgra; (void)pitch; (void)slice; return 0; }
 void mr_texture_bindings_begin(void) { }
 void mr_texture_bindings_end(void) { }
