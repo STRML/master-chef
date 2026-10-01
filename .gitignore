@@ -48,3 +48,7 @@ halo-vision-registry.txt
 # Android headless build output
 native/EngineHost/android/halo-headless
 native/build/android-arm64/
+
+# vulkan dev container outputs
+native/EngineHost/android/vkdev/vk_smoke
+native/EngineHost/android/halo-headless-static
