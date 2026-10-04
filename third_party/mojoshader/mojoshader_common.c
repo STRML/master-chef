@@ -1116,7 +1116,14 @@ void MOJOSHADER_spirv_link_attributes(const MOJOSHADER_parseData *vertex,
         // The input may not exist in the output list!
         pOffset = pTable->attrib_offsets[pAttr->usage][pAttr->index];
         vOffset = vTable->attrib_offsets[pAttr->usage][pAttr->index];
-        ((uint32 *) pixel->output)[pOffset] = attr_loc;
+        // The PS input may not have a patch-table entry either: the ps_1_1
+        // t# registers create their Input variables in emit_SPIRV_global
+        // (the "implicit input" path) and never register an attrib_offsets
+        // entry, so an unguarded write here lands on word 0-1 and corrupts
+        // the SPIR-V header ("Invalid SPIR-V header" at module create).
+        // The same guard the VS write already uses.
+        if (pOffset)
+            ((uint32 *) pixel->output)[pOffset] = attr_loc;
         if (vOffset)
             ((uint32 *) vertex->output)[vOffset] = attr_loc;
         attr_loc++;
@@ -1142,7 +1149,12 @@ void MOJOSHADER_spirv_link_attributes(const MOJOSHADER_parseData *vertex,
     } // for
 
     // gl_PointCoord support
-    if (texcoord0Loc)
+    // (hnn) This rewrite only applies to the GLSLSPIRV profile: in the plain
+    // SPIRV profile a ps texcoord0 input is the VS's oT0 varying, and
+    // pointcoord_var/load_offset are never registered (0), so the unguarded
+    // writes below land on word 1 (the SPIR-V version field) and corrupt the
+    // module header ("Invalid SPIR-V header" at module create).
+    if (is_glspirv && texcoord0Loc)
     {
         if (vTable->attrib_offsets[MOJOSHADER_USAGE_POINTSIZE][0] > 0)
         {

@@ -744,7 +744,7 @@ static void method_device(EngineCPU *cpu, D3DObj *o, int i) {
         }
         if (frames_presented <= 3 || frames_presented % 60 == 0) host_log("d3d9 Present: frame %u (%u draw calls)", frames_presented, draw_calls);
         draw_traffic_report();
-        if (host_frame_limit && frames_presented >= (uint32_t)host_frame_limit) { render_surface_report(); host_log("frame limit reached"); host_exit(0); } RET_STDCALL(D3D_OK, 5); }
+        if (host_frame_limit && frames_presented >= (uint32_t)host_frame_limit) { uint64_t real_d = 0, fb = 0; mr_program_compile_stats(&real_d, &fb); host_log("[shader] real pipeline: %llu draws, %llu fallbacks", (unsigned long long)real_d, (unsigned long long)fb); render_surface_report(); host_log("frame limit reached"); host_exit(0); } RET_STDCALL(D3D_OK, 5); }
 
     case 19: { uint32_t r = ARG(2); S32(r, 1); S32(r + 4, 0); RET_STDCALL(D3D_OK, 3); }
     case 22: { uint32_t r = ARG(2); for (uint32_t k = 0; k < 256; k++) { S16(r + 2 * k, (uint16_t)(k * 257)); S16(r + 512 + 2 * k, (uint16_t)(k * 257)); S16(r + 1024 + 2 * k, (uint16_t)(k * 257)); } RET_STDCALL(D3D_OK, 3); }

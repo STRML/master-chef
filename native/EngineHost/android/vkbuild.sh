@@ -19,7 +19,7 @@ wait
 gcc $CFLAGS -c $GEN/engine_bundle.c -o $OBJ/engine_bundle.o
 gcc $CFLAGS -c $GEN/engine_imports.c -o $OBJ/engine_imports.o
 # host shims
-for f in host.c threading.c haptics.c halo_settings.c pointer.c shims_kernel32.c shims_misc.c d3d9.c texture_decode.c metalshader.c dinput8.c ddraw.c directsound.c directsound_mixer.c vorbis_shim.c resources.c overrides.c; do
+for f in host.c threading.c haptics.c halo_settings.c pointer.c shims_kernel32.c shims_misc.c d3d9.c texture_decode.c metalshader.c dinput8.c ddraw.c directsound.c directsound_mixer.c vorbis_shim.c resources.c overrides.c vkshader.c; do
   echo "CC $f"
   gcc $CFLAGS -c $SRC/$f -o $OBJ/$(basename $f .c).o &
 done

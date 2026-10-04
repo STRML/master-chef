@@ -5,10 +5,15 @@
  * readback path returns, proving the full render pass -> submit ->
  * readback loop produces correct output.
  *
- * Build (inside container):
+ * Build (inside container; vulkanrenderer.c references the vkshader
+ * translation layer, so link it plus the MojoShader SPIRV TUs, same set as
+ * vkshader_test.c above and the -D flags in vkbuild.sh):
  *   gcc -O1 -g -std=gnu11 -w -I native/EngineHost \
  *       native/EngineHost/android/vkdev/vk_pixel_test.c \
- *       native/EngineHost/vulkanrenderer.c \
+ *       native/EngineHost/vulkanrenderer.c native/EngineHost/vkshader.c \
+ *       third_party/mojoshader/mojoshader.c third_party/mojoshader/mojoshader_common.c \
+ *       third_party/mojoshader/profiles/mojoshader_profile_common.c \
+ *       third_party/mojoshader/profiles/mojoshader_profile_spirv.c \
  *       -o /tmp/vk_pixel_test -lvulkan -lm
  * Run: VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.aarch64.json /tmp/vk_pixel_test
  *

@@ -147,6 +147,32 @@
     blit path. Zero validation errors under the renderer's own
     `VK_LAYER_KHRONOS_validation`.
 
+- [x] **Game-shader real pipeline (vkshader, lavapipe)**
+  - The game's own D3D8 token shaders (vs_1_1/ps_1_1/ps_2_0) are translated
+    to SPIR-V by the vendored MojoShader (`native/EngineHost/vkshader.c/.h`),
+    attribute-linked, and drawn with the game's vertex declaration and
+    constant register files; the fixed pretransformed-rhw pipeline remains
+    the per-draw fallback.
+  - Command (host, docker):
+    `docker run --rm --platform linux/arm64 -v "$PWD:/w" -w /w halo-vk-dev:latest`
+    `bash -c "bash /w/native/EngineHost/android/vkbuild.sh && native/build/vk-obj/halo-headless-vk game --frames 60 --quiet"`
+  - Evidence (2026-10-04, `.scratch/vk60l.log`): `[shader] real pipeline:
+    7198 draws, 118 fallbacks`, rc=0, 60 frames — every remaining fallback
+    is the by-design `ps: sampler N is not 2D` reject (the renderer
+    flattens cube maps to 2D strips, so cube/volume-sampling shaders fall
+    back to the fixed pipeline). Zero `VK_LAYER_KHRONOS_validation`
+    errors on the run.
+  - Fixed in this pass: the lavapipe SIGSEGV (0xDEADBEEF sentinel locations
+    on no-PS VS outputs), the `a0` int-addressing OpConvertFToS emitter
+    bug, the gl_PointCoord rewrite that corrupted the linked PS module
+    header (word 1), and the missing input-type patch for non-float
+    declaration elements (R16G16_SINT blend indices at location 5).
+  - Debug knobs: `HALO_NO_REAL_PIPELINE=1` forces every draw through the
+    fixed pipeline (device triage); `HALO_FRAME_CAPTURE` writes the
+    backbuffer. The headless run parks on the guest's own "Halo - Warning"
+    dialog (product-key validation), so only the splash frame has content;
+    device rows above cover the interactive menu.
+
 ## Legacy: 1.0.x visionOS source-release validation
 
 The sections below are the historical record for the 1.0.0–1.0.3

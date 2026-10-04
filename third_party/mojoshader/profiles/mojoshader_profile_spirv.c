@@ -1304,6 +1304,27 @@ static void spv_assign_destarg(Context *ctx, SpirvResult value)
         value.id = id_new;
     } // if
 
+    // A vertex address register (a0) is a private v4int variable (see
+    // emit_SPIRV_global), but the source instruction produces a float
+    // vector (e.g. "MOV a0.x, r0.y" for a skinned bone index). Convert
+    // the value once here so both the partial-write merge shuffle below
+    // and the full-write OpStore at the end of this function are
+    // type-consistent. (MOVA already arrives int-typed via
+    // OpConvertFToS, so this is a no-op for it. The PREDICATE branch has
+    // the same hazard for float sources, but the only producer of
+    // predicate values in this profile is spv_setp, which already
+    // emits a v4bool-typed value, so no conversion is needed there.)
+    if (shader_is_vertex(ctx) && reg->regtype == REG_TYPE_ADDRESS && value.tid != spv_get_type(ctx, STI_IVEC4))
+    {
+        uint32 tid_ivec4 = spv_get_type(ctx, STI_IVEC4);
+        uint32 id_converted = spv_bumpid(ctx);
+        push_output(ctx, &ctx->mainline);
+        spv_emit(ctx, 4, SpvOpConvertFToS, tid_ivec4, id_converted, value.id);
+        pop_output(ctx);
+        value.tid = tid_ivec4;
+        value.id = id_converted;
+    } // if
+
     if (reg->regtype == REG_TYPE_DEPTHOUT
      || isscalar(ctx, ctx->shader_type, arg->regtype, arg->regnum))
     {
@@ -1322,7 +1343,11 @@ static void spv_assign_destarg(Context *ctx, SpirvResult value)
         SpirvTypeIdx sti_reg;
         switch (reg->regtype)
         {
-            case REG_TYPE_ADDRESS: sti_reg = STI_IVEC4; break;
+            // REG_TYPE_ADDRESS is numerically identical to REG_TYPE_TEXTURE
+            // (mojoshader_internal.h:484-485): in the pixel shader this is a
+            // t# register, which is a private v4float variable (see
+            // emit_SPIRV_global), so the merge must stay float there.
+            case REG_TYPE_ADDRESS: sti_reg = shader_is_vertex(ctx) ? STI_IVEC4 : STI_VEC4; break;
             case REG_TYPE_PREDICATE: sti_reg = STI_BVEC4; break;
             default: sti_reg = STI_VEC4; break;
         } // switch
@@ -2042,6 +2067,20 @@ void emit_SPIRV_global(Context *ctx, RegisterType regtype, int regnum)
     push_output(ctx, &ctx->mainline_intro);
     spv_emit(ctx, 4, SpvOpVariable, tid, r->spirv.iddecl, sc);
     pop_output(ctx);
+
+    if (sc == SpvStorageClassOutput)
+    {
+        // The implicit color output of ps_1_1/1_2/1_3/1_4 (r0): the
+        // fragment output must be explicitly decorated with a Location
+        // (VUID-StandaloneSpirv-Location-04916), and emit_SPIRV_finalize
+        // appends this variable to the OpEntryPoint interface in both
+        // GL and VK modes. r0 is the only Output variable this can
+        // produce here: parse_args_DCL rejects DCL oC0 for pixel shaders
+        // below version 2.0 (no matching branch), so there is no
+        // collision with the ColorOut Location 0 that
+        // spv_output_color_location() assigns for SM2+ oC0.
+        spv_output_location(ctx, r->spirv.iddecl, 0);
+    } // if
 
     spv_output_regname(ctx, r->spirv.iddecl, regtype, regnum);
 } // emit_SPIRV_global
