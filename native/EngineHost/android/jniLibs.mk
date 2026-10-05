@@ -69,7 +69,7 @@ PIC_XRINPUT_OBJ := $(PIC_OBJ)/openxr_input.o
 $(PIC_XRINPUT_OBJ): openxr_input.c openxr_input.h | $(PIC_OBJ)
 	$(CC) $(CFLAGS) -fPIC -DHALO_OPENXR_INPUT \
 	    -I$(VISION)/third_party/openxr/include -c $< -o $@
-$(PIC_XR_OBJS): $(PIC_OBJ)/%.o: xr/%.c | $(PIC_OBJ)
+$(PIC_XR_OBJS): $(PIC_OBJ)/%.o: xr/%.c xr/xr.h xr/xr_fnlist.h xr/xr_runtime.inl | $(PIC_OBJ)
 	$(CC) $(CFLAGS) -fPIC -DXR_USE_PLATFORM_ANDROID=1 -DXR_USE_GRAPHICS_API_VULKAN=1 \
 	    -I. -Ixr -I$(GLUE) -I$(VISION)/third_party/openxr/include -c $< -o $@
 

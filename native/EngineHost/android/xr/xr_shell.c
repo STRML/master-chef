@@ -148,6 +148,9 @@ void xr_projection_matrix(XrFovf fov, float nearZ, float farZ, float m[16]) {
 /* unit tests compile section 1 only.                               */
 /* ================================================================== */
 #ifdef XR_USE_GRAPHICS_API_VULKAN
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 #include <jni.h>
 #include <vulkan/vulkan.h>
@@ -243,6 +246,19 @@ static int xr_make_instance(xr_shell *s, const xr_shell_config *cfg) {
     };
     ici.enabledExtensionNames = req;
     ici.enabledExtensionCount = sizeof req / sizeof req[0];
+    /* Android loader bring-up (XR_KHR_loader_init_android): Meta OS v60+'s
+     * loader refuses xrCreateInstance unless the app first hands the JavaVM +
+     * activity to xrInitializeLoaderKHR. Resolved through the loader with a
+     * NULL instance (the openxr.h prototype is behind XR_EXTENSION_PROTOTYPES). */
+    static PFN_xrInitializeLoaderKHR init_loader = NULL;
+    if (XR_SUCCEEDED(xrGetInstanceProcAddr(XR_NULL_HANDLE, "xrInitializeLoaderKHR",
+                                           (PFN_xrVoidFunction *)&init_loader)) && init_loader) {
+        XrLoaderInitInfoAndroidKHR ldr_init = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
+        ldr_init.applicationVM = cfg->application_vm;
+        ldr_init.applicationContext = cfg->application_activity;
+        XrResult ir = init_loader((const XrLoaderInitInfoBaseHeaderKHR*)&ldr_init);
+        if (XR_FAILED(ir)) { xr_fail("xrInitializeLoaderKHR", ir); return -1; }
+    }
     XrResult r = xrCreateInstance(&ici, &s->instance);
     if (XR_FAILED(r)) { xr_fail("xrCreateInstance", r); return -1; }
     g_instance = s->instance;

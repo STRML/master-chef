@@ -4,9 +4,38 @@
 static void xr_poll_events(xr_shell *s);
 static int xr_locate_views(xr_shell *s, XrTime t);
 static int xr_make_instance(xr_shell *s, const xr_shell_config *cfg);
+/* Split the enable2 space-separated extension list (buffer is modified
+ * in place) into a ppEnabledExtensionNames array. Returns the count. */
+static uint32_t xr_split_vkext(char *buf, uint32_t len, const char **out, uint32_t max) {
+    uint32_t cnt = 0;
+    if (len < 1) return 0;
+    buf[len] = '\0';
+    char *sp = buf;
+    while (*sp && cnt < max) {
+        out[cnt++] = sp;
+        while (*sp && *sp != ' ') sp++;
+        if (*sp == ' ') *sp++ = '\0';
+    }
+    return cnt;
+}
+
 static int xr_make_vulkan(xr_shell *s, const xr_shell_config *cfg) {
     (void)cfg;
-    /* 1. The runtime's suggested Vulkan instance. */
+    /* 1. The runtime's suggested Vulkan instance. enable2 requires the
+     * extensions the runtime enumerates via xrGetVulkanInstanceExtensionsKHR
+     * (space-separated); Meta's runtime rejects the VkInstance with
+     * XR_ERROR_VALIDATION_FAILURE when they are missing. */
+    static char vkext_names[1024];
+    static const char *vkext_list[16];
+    uint32_t vkext_cnt = 0;
+    if (xrGetVulkanInstanceExtensionsKHR) {
+        uint32_t vkext_len = 0;
+        XrResult er = xrGetVulkanInstanceExtensionsKHR(s->instance, s->system,
+            sizeof vkext_names - 1, &vkext_len, vkext_names);
+        if (er == XR_SUCCESS)
+            vkext_cnt = xr_split_vkext(vkext_names, vkext_len, vkext_list, 16);
+    }
+    if (!xrCreateVulkanInstanceKHR) { xr_fail("xrCreateVulkanInstanceKHR", XR_ERROR_FUNCTION_UNSUPPORTED); return -1; }
     XrVulkanInstanceCreateInfoKHR ici = {XR_TYPE_VULKAN_INSTANCE_CREATE_INFO_KHR};
     ici.systemId = s->system;
     ici.pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
@@ -14,12 +43,30 @@ static int xr_make_vulkan(xr_shell *s, const xr_shell_config *cfg) {
     vai.apiVersion = VK_API_VERSION_1_1;
     VkInstanceCreateInfo vi = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
     vi.pApplicationInfo = &vai;
+    vi.enabledExtensionCount = vkext_cnt;
+    vi.ppEnabledExtensionNames = vkext_cnt ? vkext_list : NULL;
     XrResult r;
     VkResult vr = VK_SUCCESS;
-    if (!xrCreateVulkanInstanceKHR) { xr_fail("xrCreateVulkanInstanceKHR", XR_ERROR_FUNCTION_UNSUPPORTED); return -1; }
+    ici.vulkanCreateInfo = &vi;
     r = xrCreateVulkanInstanceKHR(s->instance, &ici, &s->vkInstance, &vr);
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "haloquest",
+                        "vkCreateInstance(xr): %d exts [%s] -> VkResult %d",
+                        (int)vkext_cnt, vkext_cnt ? vkext_list[0] : "", (int)vr);
+#endif
     if (XR_FAILED(r) || vr != VK_SUCCESS) { xr_fail("xrCreateVulkanInstanceKHR", r); return -1; }
 
+    /* Spec order: the runtime refuses xrCreateSession with
+     * XR_ERROR_GRAPHICS_REQUIREMENTS_CALL_MISSING unless the app has queried
+     * its Vulkan graphics requirements for this system first. */
+    XrGraphicsRequirementsVulkan2KHR greq = {XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN2_KHR};
+    if (!xrGetVulkanGraphicsRequirements2KHR) { xr_fail("xrGetVulkanGraphicsRequirements2KHR", XR_ERROR_FUNCTION_UNSUPPORTED); return -1; }
+    r = xrGetVulkanGraphicsRequirements2KHR(s->instance, s->system, &greq);
+    __android_log_print(ANDROID_LOG_INFO, "haloquest",
+        "gfx req: %d min=%llu max=%llu", (int)r,
+        (unsigned long long)greq.minApiVersionSupported,
+        (unsigned long long)greq.maxApiVersionSupported);
+    if (XR_FAILED(r)) { xr_fail("xrGetVulkanGraphicsRequirements2KHR", r); return -1; }
     /* 2. The XR-recommended physical device. */
     XrVulkanGraphicsDeviceGetInfoKHR gi = {XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR};
     gi.systemId = s->system;
@@ -49,6 +96,19 @@ static int xr_make_vulkan(xr_shell *s, const xr_shell_config *cfg) {
     VkDeviceCreateInfo di = {VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
     di.queueCreateInfoCount = 1;
     di.pQueueCreateInfos = &qci;
+    static char vkdext_names[1024];
+    static const char *vkdext_list[16];
+    uint32_t vkdext_cnt = 0;
+    if (xrGetVulkanDeviceExtensionsKHR) {
+        uint32_t vkdext_len = 0;
+        XrResult er = xrGetVulkanDeviceExtensionsKHR(s->instance, s->system,
+            sizeof vkdext_names - 1, &vkdext_len, vkdext_names);
+        if (er == XR_SUCCESS)
+            vkdext_cnt = xr_split_vkext(vkdext_names, vkdext_len, vkdext_list, 16);
+    }
+    di.enabledExtensionCount = vkdext_cnt;
+    di.ppEnabledExtensionNames = vkdext_cnt ? vkdext_list : NULL;
+    dci.vulkanCreateInfo = &di;
     if (!xrCreateVulkanDeviceKHR) { xr_fail("xrCreateVulkanDeviceKHR", XR_ERROR_FUNCTION_UNSUPPORTED); return -1; }
     r = xrCreateVulkanDeviceKHR(s->instance, &dci, &s->vkDevice, &vr);
     if (XR_FAILED(r) || vr != VK_SUCCESS) { xr_fail("xrCreateVulkanDeviceKHR", r); return -1; }
@@ -99,18 +159,39 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
     sci.height = eye->height;
     sci.faceCount = 1;
     sci.arraySize = 1;
-    sci.mipCount = 1;
     XrVulkanSwapchainCreateInfoMETA meta = {XR_TYPE_VULKAN_SWAPCHAIN_CREATE_INFO_META};
     /* TRANSFER_DST: the renderer's mr_blit_target_to copies the engine
      * frame into the swapchain image as a blit destination. The compositor
-     * reads it in COLOR_ATTACHMENT; the blit restores it there. */
+     * reads it in COLOR_ATTACHMENT; the blit restores it to COLOR_ATTACHMENT. */
     meta.additionalUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     sci.next = &meta;
-    XrResult r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+    /* The XR runtime owns the swapchain VkFormat enum: Meta's runtime
+     * rejects the BGRA picks, so try RGBA too (their Unity/Godot target).
+     * An R8G8B8A8 swapchain is NOT component-compatible with the renderer's
+     * B8G8R8A8_UNORM image for vkCmdBlitImage; the blit pass reinterprets
+     * the renderer sample as the matching channel order (see vulkanrenderer
+     * swapchain-format adoption). BGRA variants stay first so the
+     * lavender/lavapipe path is unchanged when they are accepted. */
+    static const VkFormat fmt_try[] = { VK_FORMAT_B8G8R8A8_UNORM,
+                                        VK_FORMAT_B8G8R8A8_SRGB,
+                                        VK_FORMAT_R8G8B8A8_UNORM,
+                                        VK_FORMAT_R8G8B8A8_SRGB };
+    XrResult r = XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED;
+    for (unsigned fi = 0; fi < sizeof fmt_try / sizeof fmt_try[0]; fi++) {
+        sci.format = fmt_try[fi];
+        r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+        __android_log_print(ANDROID_LOG_INFO, "haloquest",
+            "eye %d fmt %d -> XrResult %d", e, (int)fmt_try[fi], (int)r);
+        if (r == XR_SUCCESS) break;
+    }
     if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain", r); return -1; }
     uint32_t n = 0;
+    for (uint32_t i = 0; i < XR_MAX_IMAGES; i++) {
+        eye->images[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN2_KHR;
+        eye->images[i].next = NULL;
+    }
     r = xrEnumerateSwapchainImages(eye->swapchain, XR_MAX_IMAGES, &n,
         (XrSwapchainImageBaseHeader*)eye->images);
     if (XR_FAILED(r) || n == 0) { xr_fail("xrEnumerateSwapchainImages", r); return -1; }
@@ -126,6 +207,12 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
 
 static int xr_make_swapchains(xr_shell *s) {
     uint32_t vc = 0;
+    /* Meta's runtime validates the incoming array: each element's type must
+     * be XR_TYPE_VIEW_CONFIGURATION_VIEW (lavapipe never checked it). */
+    for (int e = 0; e < 2; e++) {
+        s->cfgViews[e].type = XR_TYPE_VIEW_CONFIGURATION_VIEW;
+        s->cfgViews[e].next = NULL;
+    }
     XrResult r = xrEnumerateViewConfigurationViews(s->instance, s->system,
         XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &vc, s->cfgViews);
     if (XR_FAILED(r) || vc < 2) { xr_fail("xrEnumerateViewConfigurationViews", r); return -1; }
@@ -139,7 +226,8 @@ static int xr_make_swapchains(xr_shell *s) {
  * resolution / refresh-rate switches on Quest; the OpenXR spec has no
  * dedicated event, so apps re-check the recommended rect). */
 static int xr_check_view_config(xr_shell *s) {
-    XrViewConfigurationView views[2];
+    XrViewConfigurationView views[2] = {
+        {XR_TYPE_VIEW_CONFIGURATION_VIEW}, {XR_TYPE_VIEW_CONFIGURATION_VIEW} };
     uint32_t vc = 0;
     XrResult r = xrEnumerateViewConfigurationViews(s->instance, s->system,
         XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO, 2, &vc, views);
@@ -185,6 +273,10 @@ static int xr_make_quad_swapchains(xr_shell *s) {
         XrResult r = xrCreateSwapchain(s->session, &sci, &q->swapchain);
         if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain(quad)", r); return -1; }
         XrSwapchainImageVulkan2KHR imgs[XR_MAX_IMAGES];
+        for (uint32_t i = 0; i < XR_MAX_IMAGES; i++) {
+            imgs[i].type = XR_TYPE_SWAPCHAIN_IMAGE_VULKAN2_KHR;
+            imgs[i].next = NULL;
+        }
         uint32_t n = 0;
         r = xrEnumerateSwapchainImages(q->swapchain, XR_MAX_IMAGES, &n,
             (XrSwapchainImageBaseHeader*)imgs);

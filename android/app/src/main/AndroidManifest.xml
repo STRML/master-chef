@@ -20,10 +20,21 @@
         android:version="1"
         android:required="true" />
     <uses-feature android:name="org.khronos.openxr" android:required="true" />
+    <!-- Android 11+ package visibility: without these <queries>, the OpenXR
+         loader sees neither runtime broker ("Could access neither the
+         installable nor system runtime broker") and xrCreateInstance returns
+         XR_ERROR_INITIALIZATION_FAILED. -->
+    <queries>
+        <intent>
+            <action android:name="org.khronos.openxr.runtime_broker" />
+        </intent>
+        <intent>
+            <action android:name="org.khronos.openxr.system_runtime_broker" />
+        </intent>
+    </queries>
 
     <!-- Controller input: gamepad plus haptics (docs/CONTROLS.md mapping). -->
     <uses-permission android:name="android.permission.VIBRATE" />
-
     <application
         android:label="Halo Quest"
         android:appCategory="game"
@@ -43,17 +54,14 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-                <!-- Meta's OpenXR loader refuses xrCreateInstance
-                     (XR_ERROR_FORM_FACTOR_UNAVAILABLE) for processes that were
-                     not armed as VR activities by the launcher. -->
+                <!-- Meta's launch check only arms VR activities that request
+                     this category; the loader then serves the instance. -->
                 <category android:name="com.oculus.intent.category.VR" />
                 <category android:name="org.khronos.openxr.intent.category.IMMERSIVE" />
             </intent-filter>
         </activity>
-        <!-- Meta's OpenXR loader derives the available form factors from this
-             application metadata (OpenXR Mobile SDK template). Without it,
-             xrGetSystem(XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY) fails with
-             XR_ERROR_FORM_FACTOR_UNAVAILABLE (-6) on Quest. -->
+        <!-- The Meta OpenXR loader derives available form factors from this
+             application metadata (OpenXR Mobile SDK template). -->
         <meta-data
             android:name="com.oculus.supportedDevices"
             android:value="quest2|quest3|questpro" />
