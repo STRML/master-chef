@@ -2,8 +2,10 @@
  * Included by xr_shell.c inside the XR_USE_GRAPHICS_API_VULKAN block. */
 
 static void xr_poll_events(xr_shell *s);
+static void xr_try_begin(xr_shell *s);
 static int xr_locate_views(xr_shell *s, XrTime t);
 static int xr_make_instance(xr_shell *s, const xr_shell_config *cfg);
+#include <unistd.h>
 /* Split the enable2 space-separated extension list (buffer is modified
  * in place) into a ppEnabledExtensionNames array. Returns the count. */
 static uint32_t xr_split_vkext(char *buf, uint32_t len, const char **out, uint32_t max) {
@@ -177,24 +179,43 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
                                           VK_FORMAT_B8G8R8A8_SRGB,
                                           VK_FORMAT_R8G8B8A8_UNORM,
                                           VK_FORMAT_R8G8B8A8_SRGB };
-    static int64_t fmt_list[32];
+    static int64_t fmt_list[128];
     uint32_t fmt_cnt = 0;
-    XrResult fr = xrEnumerateSwapchainFormats(s->session, 32, &fmt_cnt, fmt_list);
+    XrResult fr = xrEnumerateSwapchainFormats(s->session, 128, &fmt_cnt, fmt_list);
     __android_log_print(ANDROID_LOG_INFO, "haloquest",
         "eye %d enumerateSwapchainFormats: %d (%u formats)", e, (int)fr, fmt_cnt);
     for (uint32_t i = 0; i < fmt_cnt && i < 12; i++)
         __android_log_print(ANDROID_LOG_INFO, "haloquest",
             "  fmt[%u] = %lld", i, (long long)fmt_list[i]);
+    /* Variant ladder: for each preferred format (in preference order,
+     * only if the runtime enumerated it), try the two create-info shapes:
+     *   A) chained XR_META_vulkan_swapchain_create_info requesting the
+     *      TRANSFER usages the renderer's blit needs;
+     *   B) core-only (next NULL) - if the runtime does not honour the META
+     *      struct (its extension silently ignored) shape A fails with
+     *      XR_ERROR_VALIDATION_FAILURE while B succeeds.
+     * mipCount=1 matches what Meta's own packages request; 0 is spec-legal
+     * but a validator suspect. The winner is recorded so the blit path
+     * knows whether TRANSFER_DST exists on the images. */
     XrResult r = XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED;
+    sci.mipCount = 1;
+    __android_log_print(ANDROID_LOG_INFO, "haloquest",
+        "eye %d swapchain size %ux%u", e, eye->width, eye->height);
     if (fr == XR_SUCCESS && fmt_cnt) {
         for (unsigned pi = 0; pi < 4 && r != XR_SUCCESS; pi++) {
             for (uint32_t i = 0; i < fmt_cnt; i++) {
                 if (fmt_list[i] != fmt_prefer[pi]) continue;
                 sci.format = (VkFormat)fmt_list[i];
+                sci.next = &meta;
                 r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
                 __android_log_print(ANDROID_LOG_INFO, "haloquest",
-                    "eye %d fmt %d -> XrResult %d", e, (int)fmt_list[i], (int)r);
-                if (r == XR_SUCCESS) break;
+                    "eye %d fmt %d META -> %d", e, (int)fmt_list[i], (int)r);
+                if (r == XR_SUCCESS) { s->swapchain_wants_transfer = 1; s->swapchain_format = (VkFormat)fmt_list[i]; break; }
+                sci.next = NULL;
+                r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+                __android_log_print(ANDROID_LOG_INFO, "haloquest",
+                    "eye %d fmt %d core  -> %d", e, (int)fmt_list[i], (int)r);
+                if (r == XR_SUCCESS) { s->swapchain_wants_transfer = 0; s->swapchain_format = (VkFormat)fmt_list[i]; break; }
             }
         }
     } else {
@@ -207,7 +228,7 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
             r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
             __android_log_print(ANDROID_LOG_INFO, "haloquest",
                 "eye %d fmt %d -> XrResult %d", e, (int)fmt_try[fi], (int)r);
-            if (r == XR_SUCCESS) break;
+            if (r == XR_SUCCESS) { s->swapchain_wants_transfer = 1; s->swapchain_format = fmt_try[fi]; break; }
         }
     }
     if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain", r); return -1; }
@@ -284,7 +305,7 @@ static int xr_make_quad_swapchains(xr_shell *s) {
         XrSwapchainCreateInfo sci = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         sci.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT |
                          XR_SWAPCHAIN_USAGE_SAMPLED_BIT;
-        sci.format = VK_FORMAT_B8G8R8A8_UNORM;
+        sci.format = s->swapchain_format;
         sci.sampleCount = 1;
         sci.width = w;
         sci.height = h;
@@ -292,7 +313,11 @@ static int xr_make_quad_swapchains(xr_shell *s) {
         sci.arraySize = 1;
         sci.mipCount = 1;
         XrVulkanSwapchainCreateInfoMETA meta = {XR_TYPE_VULKAN_SWAPCHAIN_CREATE_INFO_META};
-        meta.additionalUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        /* The quad's mr_blit_target_to copies make these images blit
+         * destinations too - same TRANSFER usages the eyes requested. */
+        meta.additionalUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         sci.next = &meta;
         XrResult r = xrCreateSwapchain(s->session, &sci, &q->swapchain);
         if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain(quad)", r); return -1; }
@@ -341,8 +366,15 @@ static int xr_locate_views(xr_shell *s, XrTime t) {
     if (XR_FAILED(r)) { xr_fail("xrLocateViews", r); return -1; }
     if (!(vst.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT) ||
         !(vst.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT)) {
-        xr_fail("xrLocateViews invalid", XR_ERROR_RUNTIME_UNAVAILABLE);
-        return -1;
+        /* Normal right after xrBeginSession (and any time tracking
+         * degrades: cameras covered, headset face-down). Skip the frame;
+         * the loop retries. Return 1, not -1: a dead pose is not fatal. */
+        static int pose_warns = 0;
+        if ((pose_warns++ % 120) == 0)
+            __android_log_print(ANDROID_LOG_INFO, "haloquest",
+                "pose invalid (flags 0x%x), waiting for tracking [%d]",
+                (unsigned)vst.viewStateFlags, pose_warns);
+        return 1;
     }
     for (int i = 0; i < 2; i++) {
         s->eye[i].pose = s->views[i].pose;
@@ -359,6 +391,14 @@ int xr_shell_frame(xr_shell *s) {
     if (xr_lc_should_exit(&s->lc)) return 1;
     XrFrameState fs = {XR_TYPE_FRAME_STATE};
     XrResult r = xrWaitFrame(s->session, &(XrFrameWaitInfo){XR_TYPE_FRAME_WAIT_INFO}, &fs);
+    if (r == XR_ERROR_SESSION_NOT_RUNNING && !s->sessionBegun) {
+        /* READY arrives asynchronously; retry the handoff, skip this frame. */
+        xr_poll_events(s);
+        if ((s->lc.actions & XR_LC_ACT_BEGIN) || s->lc.state == XR_APP_RUNNING)
+            xr_try_begin(s);
+        usleep(10 * 1000);
+        return 1;
+    }
     if (XR_FAILED(r)) { xr_fail("xrWaitFrame", r); return -1; }
     r = xrBeginFrame(s->session, &(XrFrameBeginInfo){XR_TYPE_FRAME_BEGIN_INFO});
     if (XR_FAILED(r)) { xr_fail("xrBeginFrame", r); return -1; }
@@ -369,7 +409,7 @@ int xr_shell_frame(xr_shell *s) {
         return 1;
     }
     if (xr_check_view_config(s) != 0) return -1;
-    if (xr_locate_views(s, fs.predictedDisplayTime) != 0) return -1;
+    { int lv = xr_locate_views(s, fs.predictedDisplayTime); if (lv != 0) return lv > 0 ? 1 : -1; }
 
     for (int e = 0; e < 2; e++) {
         xr_eye *eye = &s->eye[e];
@@ -469,6 +509,18 @@ static void xr_poll_events(xr_shell *s) {
     }
 }
 
+/* Begin the XR session if the runtime has signalled READY. Idempotent;
+ * records the outcome in s->sessionBegun and g_last_error. */
+static void xr_try_begin(xr_shell *s) {
+    if (s->sessionBegun) return;
+    XrSessionBeginInfo bi = {XR_TYPE_SESSION_BEGIN_INFO};
+    bi.primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
+    XrResult r = xrBeginSession(s->session, &bi);
+    if (XR_FAILED(r) && r != XR_ERROR_SESSION_RUNNING) { xr_fail("xrBeginSession", r); return; }
+    s->sessionBegun = true;
+    __android_log_print(ANDROID_LOG_INFO, "haloquest", "xrBeginSession -> %d", (int)r);
+}
+
 XrPosef xr_shell_head_pose(const xr_shell *s) {
     XrPosef h = {xr_quat_identity(), {0,0,0}};
     /* Midpoint of the two eye poses (head space). */
@@ -511,6 +563,7 @@ xr_shell *xr_shell_create(const xr_shell_config *cfg) {
     s->maxFrames = cfg->max_frames;
     s->showQuads = cfg->show_quads;
     s->engine_target = cfg->engine_target;
+    s->swapchain_wants_transfer = -1;
     xr_lc_init(&s->lc);
     if (xr_make_instance(s, cfg) != 0) { xr_shell_destroy(s); return NULL; }
     if (xr_make_vulkan(s, cfg) != 0) { xr_shell_destroy(s); return NULL; }
@@ -520,16 +573,18 @@ xr_shell *xr_shell_create(const xr_shell_config *cfg) {
         xr_quads_default_layout(&s->quads);
         if (xr_make_quad_swapchains(s) != 0) { xr_shell_destroy(s); return NULL; }
     }
-    /* Android sessions start READY; the runtime moves them to RUNNING
-     * via events (poll pumps them). */
-    XrSessionBeginInfo bi = {XR_TYPE_SESSION_BEGIN_INFO};
-    bi.primaryViewConfigurationType = XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO;
-    XrResult r = xrBeginSession(s->session, &bi);
-    if (XR_FAILED(r) && r != XR_ERROR_SESSION_RUNNING) {
-        xr_fail("xrBeginSession", r);
-    } else {
-        s->sessionBegun = true;
+    /* The runtime delivers XR_SESSION_STATE_READY asynchronously after
+     * xrCreateSession (kiosk/focus handoff); xrBeginSession before READY
+     * is rejected on Meta's runtime. Pump events and begin the moment the
+     * FSM signals ACT_BEGIN. Bounded so a blocked launch cannot hang
+     * create forever; if begin never lands, the frame loop retries. */
+    for (int spin = 0; spin < 500 && !s->sessionBegun; spin++) {
+        xr_poll_events(s);
+        if (s->lc.actions & XR_LC_ACT_BEGIN) xr_try_begin(s);
+        if (!s->sessionBegun) usleep(10 * 1000);
     }
+    __android_log_print(ANDROID_LOG_INFO, "haloquest",
+        "session begun: %d (lc state %d)", (int)s->sessionBegun, (int)s->lc.state);
     return s;
 }
 

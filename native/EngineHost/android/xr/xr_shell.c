@@ -166,9 +166,9 @@ static XrInstance g_instance;
 static char g_last_error[256];
 static void xr_fail(const char *what, XrResult r) {
     char buf[XR_MAX_RESULT_STRING_SIZE];
+    buf[0] = '\0';
     if (g_instance) xrResultToString(g_instance, r, buf);
-    else snprintf(buf, sizeof buf, "XrResult %d", (int)r);
-    snprintf(g_last_error, sizeof g_last_error, "%s: %s", what, buf);
+    snprintf(g_last_error, sizeof g_last_error, "%s: XrResult %d %s", what, (int)r, buf);
     fprintf(stderr, "[xr] %s\n", g_last_error);
 }
 const char *xr_shell_last_error(void) { return g_last_error; }
@@ -211,6 +211,16 @@ struct xr_shell {
     xr_lc lc;
     mr_context *engine_target;
     int engineW, engineH;         /* newest engine frame dimensions   */
+    /* 1: eye swapchains were created with the META struct and carry the
+     * TRANSFER_SRC/DST usages the renderer's blit needs; 0: core-only
+     * images (META create-info rejected) - presentation must then avoid
+     * vkCmdBlitImage into them. -1 until decided. */
+    int swapchain_wants_transfer;
+    /* The VkFormat the runtime accepted for the eye swapchains; every
+     * other swapchain (quads) uses it too. The component values pass
+     * through the renderer's blit unchanged, so only BGRA<->RGBA class
+     * swaps are safe (same size class - vkCmdBlitImage requirement). */
+    VkFormat swapchain_format;
 };
 
 static void xr_bind_ext_fns(XrInstance inst) {

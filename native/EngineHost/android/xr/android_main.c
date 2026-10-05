@@ -237,7 +237,15 @@ static void *engine_thread(void *arg) {
 void android_main(struct android_app *app) {
     app->onAppCmd = on_app_cmd;
     app->onInputEvent = on_input;
-
+    /* Android may retain this process after a previous android_main
+     * returned (cached) and call android_main again on the next launch.
+     * Reset every flag the previous teardown left set; g_frame_lock is
+     * deliberately never destroyed so it stays valid across re-entry. */
+    atomic_store(&g_engine_done, 0);
+    atomic_store(&g_engine_shutdown, 0);
+    atomic_store(&g_window_ready, 0);
+    g_frame_seq = 0;
+    atomic_store(&g_consumed_seq, 0);
     /* Game root: the EXTERNAL files dir + /game — the exact path the
      * Quest setup stage adb-pushes to (/sdcard/Android/data/<pkg>/files).
      * internalDataPath is the /data/user/0 dir, which adb cannot write
@@ -335,8 +343,9 @@ void android_main(struct android_app *app) {
 finish:
     xr_shell_destroy(g_shell);
     g_shell = NULL;
-    pthread_mutex_destroy(&g_frame_lock);
-    free(g_frame_buf);
-    g_frame_buf = NULL;
+    /* g_frame_lock and the frame buffer are process-lifetime statics:
+     * android_main can be re-entered in a cached process, and destroying
+     * them here (or freeing buf while cap stays) races the next entry's
+     * metalwin_present. Keep them; the process exit reclaims. */
     ANativeActivity_finish(app->activity);
 }
