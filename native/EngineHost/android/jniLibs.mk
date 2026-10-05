@@ -10,8 +10,15 @@ PIC_OBJ := $(OBJ)/pic
 PIC_CHUNK_OBJS := $(patsubst $(GEN)/%.c,$(PIC_OBJ)/%.o,$(CHUNKS))
 PIC_HOST_OBJS := $(patsubst %.c,$(PIC_OBJ)/%.o,$(HOST_SRCS))
 PIC_STUB_OBJS := $(patsubst %.c,$(PIC_OBJ)/%.o,$(STUB_SRCS))
+# MojoShader profile for the device: vkshader.c translates the game's D3D8
+# tokens to SPIR-V, so the PIC MojoShader build flips SPIRV on and metal off
+# (the metal profile never runs on Android; metalshader.o still compiles
+# against the public API and its translation calls return "no replacement",
+# mirroring the container vkbuild.sh single-SPIRV-set device build).
+MOJOSPIRVDEFS := $(MOJODEFS) -DSUPPORT_PROFILE_METAL=0
+MOJOSPIRVDEFS := $(subst SUPPORT_PROFILE_SPIRV=0,SUPPORT_PROFILE_SPIRV=1,$(MOJOSPIRVDEFS))
 PIC_MOJO_OBJS := $(PIC_OBJ)/mojoshader.o $(PIC_OBJ)/mojoshader_common.o \
-                 $(PIC_OBJ)/mojoshader_profile_common.o $(PIC_OBJ)/mojoshader_profile_metal.o
+                 $(PIC_OBJ)/mojoshader_profile_common.o $(PIC_OBJ)/mojoshader_profile_spirv.o
 
 $(PIC_OBJ):
 	mkdir -p $(PIC_OBJ)
@@ -31,14 +38,13 @@ $(PIC_STUB_OBJS): $(PIC_OBJ)/%.o: %.c | $(PIC_OBJ)
 
 
 $(PIC_OBJ)/mojoshader.o: $(MOJODIR)/mojoshader.c | $(PIC_OBJ)
-	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJODEFS) -I$(MOJODIR) -c $< -o $@
+	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
 $(PIC_OBJ)/mojoshader_common.o: $(MOJODIR)/mojoshader_common.c | $(PIC_OBJ)
-	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJODEFS) -I$(MOJODIR) -c $< -o $@
+	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
 $(PIC_OBJ)/mojoshader_profile_common.o: $(MOJODIR)/profiles/mojoshader_profile_common.c | $(PIC_OBJ)
-	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJODEFS) -I$(MOJODIR) -c $< -o $@
-$(PIC_OBJ)/mojoshader_profile_metal.o: $(MOJODIR)/profiles/mojoshader_profile_metal.c | $(PIC_OBJ)
-	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJODEFS) -I$(MOJODIR) -c $< -o $@
-
+	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
+$(PIC_OBJ)/mojoshader_profile_spirv.o: $(MOJODIR)/profiles/mojoshader_profile_spirv.c | $(PIC_OBJ)
+	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
 # Phase 4/6: the APK's native library with the NativeActivity entry.
 # The XR shell (xr/) supplies android_main, the OpenXR session +
 # per-eye swapchains, and the metalwin_present bridge (which replaces
@@ -69,11 +75,17 @@ $(PIC_GLUE_OBJ): $(GLUE)/android_native_app_glue.c | $(PIC_OBJ)
 # counts uploads) with the lavapipe-validated vulkanrenderer.c. Linked
 # -lvulkan; the XR shell's per-eye mr_create runs on this path.
 PIC_VK_OBJ := $(PIC_OBJ)/vulkanrenderer.o
+# vkshader: the D3D8-token -> SPIR-V translation layer (self-contained TU;
+# mirrors the container vkbuild.sh host-shim compile).
+PIC_VKSHADER_OBJ := $(PIC_OBJ)/vkshader.o
+$(PIC_VKSHADER_OBJ): $(SRC)/vkshader.c $(SRC)/vkshader.h | $(PIC_OBJ)
+	$(CC) $(CFLAGS) -fPIC -I$(SRC) -c $< -o $@
+
 $(PIC_VK_OBJ): $(SRC)/vulkanrenderer.c $(SRC)/metalrenderer.h $(SRC)/vulkan_shaders.h | $(PIC_OBJ)
 	$(CC) $(CFLAGS) -fPIC -I$(SRC) -c $< -o $@
 
 jniLibs: $(PIC_CHUNK_OBJS) $(PIC_HOST_OBJS) $(PIC_STUB_OBJS) $(PIC_MOJO_OBJS) \
-         $(PIC_XR_OBJS) $(PIC_GLUE_OBJ) $(PIC_XRINPUT_OBJ) $(PIC_VK_OBJ) \
+         $(PIC_XR_OBJS) $(PIC_GLUE_OBJ) $(PIC_XRINPUT_OBJ) $(PIC_VK_OBJ) $(PIC_VKSHADER_OBJ) \
          $(PIC_OBJ)/engine_bundle.o $(PIC_OBJ)/engine_imports.o
 	mkdir -p $(JNI_DIR)
 	$(CC) -O2 -shared -o $(JNI_DIR)/libhaloquest.so \
