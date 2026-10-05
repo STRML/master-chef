@@ -134,6 +134,15 @@ int metalwin_should_close(void) {
     return 0;
 }
 
+/* metalwin_init: the window-side stub the APK link swaps in for
+ * metalwin_stub.o's (which jniLibs.mk filters out; d3d9.c:487 calls it once
+ * before the first present). The XR pump owns the real surfaces, so success
+ * is unconditional; the frame path is metalwin_present above. */
+int metalwin_init(int width, int height, const char *title) {
+    (void)width; (void)height; (void)title;
+    return 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* activity command pump                                               */
 /* ------------------------------------------------------------------ */

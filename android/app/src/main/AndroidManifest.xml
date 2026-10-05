@@ -43,8 +43,19 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <!-- Meta's OpenXR loader refuses xrCreateInstance
+                     (XR_ERROR_FORM_FACTOR_UNAVAILABLE) for processes that were
+                     not armed as VR activities by the launcher. -->
+                <category android:name="com.oculus.intent.category.VR" />
                 <category android:name="org.khronos.openxr.intent.category.IMMERSIVE" />
             </intent-filter>
         </activity>
+        <!-- Meta's OpenXR loader derives the available form factors from this
+             application metadata (OpenXR Mobile SDK template). Without it,
+             xrGetSystem(XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY) fails with
+             XR_ERROR_FORM_FACTOR_UNAVAILABLE (-6) on Quest. -->
+        <meta-data
+            android:name="com.oculus.supportedDevices"
+            android:value="quest2|quest3|questpro" />
     </application>
 </manifest>

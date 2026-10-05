@@ -11,14 +11,17 @@ PIC_CHUNK_OBJS := $(patsubst $(GEN)/%.c,$(PIC_OBJ)/%.o,$(CHUNKS))
 PIC_HOST_OBJS := $(patsubst %.c,$(PIC_OBJ)/%.o,$(HOST_SRCS))
 PIC_STUB_OBJS := $(patsubst %.c,$(PIC_OBJ)/%.o,$(STUB_SRCS))
 # MojoShader profile for the device: vkshader.c translates the game's D3D8
-# tokens to SPIR-V, so the PIC MojoShader build flips SPIRV on and metal off
-# (the metal profile never runs on Android; metalshader.o still compiles
-# against the public API and its translation calls return "no replacement",
-# mirroring the container vkbuild.sh single-SPIRV-set device build).
-MOJOSPIRVDEFS := $(MOJODEFS) -DSUPPORT_PROFILE_METAL=0
+# tokens to SPIR-V, so the PIC MojoShader build adds the SPIRV profile to the
+# object set (SPIRV=1, exactly the container vkbuild.sh defines). Metal stays
+# ENABLED: mojoshader_profile_spirv.c's emit_SPIRV_* routines call the shared
+# emit_METAL_* preamble helpers defined in the metal profile TU, so both TUs
+# must link (the container links the same set). Device shader translation
+# goes through vkshader; metalshader.o's MOJOSHADER_compile path is not hit.
+MOJOSPIRVDEFS := $(MOJODEFS)
 MOJOSPIRVDEFS := $(subst SUPPORT_PROFILE_SPIRV=0,SUPPORT_PROFILE_SPIRV=1,$(MOJOSPIRVDEFS))
 PIC_MOJO_OBJS := $(PIC_OBJ)/mojoshader.o $(PIC_OBJ)/mojoshader_common.o \
-                 $(PIC_OBJ)/mojoshader_profile_common.o $(PIC_OBJ)/mojoshader_profile_spirv.o
+                 $(PIC_OBJ)/mojoshader_profile_common.o \
+                 $(PIC_OBJ)/mojoshader_profile_metal.o $(PIC_OBJ)/mojoshader_profile_spirv.o
 
 $(PIC_OBJ):
 	mkdir -p $(PIC_OBJ)
@@ -42,6 +45,8 @@ $(PIC_OBJ)/mojoshader.o: $(MOJODIR)/mojoshader.c | $(PIC_OBJ)
 $(PIC_OBJ)/mojoshader_common.o: $(MOJODIR)/mojoshader_common.c | $(PIC_OBJ)
 	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
 $(PIC_OBJ)/mojoshader_profile_common.o: $(MOJODIR)/profiles/mojoshader_profile_common.c | $(PIC_OBJ)
+	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
+$(PIC_OBJ)/mojoshader_profile_metal.o: $(MOJODIR)/profiles/mojoshader_profile_metal.c | $(PIC_OBJ)
 	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
 $(PIC_OBJ)/mojoshader_profile_spirv.o: $(MOJODIR)/profiles/mojoshader_profile_spirv.c | $(PIC_OBJ)
 	$(CC) -O2 -w -std=c11 -fPIC -DMOJOSHADER_NO_VERSION_INCLUDE=1 $(MOJOSPIRVDEFS) -I$(MOJODIR) -c $< -o $@
@@ -84,6 +89,17 @@ $(PIC_VKSHADER_OBJ): $(SRC)/vkshader.c $(SRC)/vkshader.h | $(PIC_OBJ)
 $(PIC_VK_OBJ): $(SRC)/vulkanrenderer.c $(SRC)/metalrenderer.h $(SRC)/vulkan_shaders.h | $(PIC_OBJ)
 	$(CC) $(CFLAGS) -fPIC -I$(SRC) -c $< -o $@
 
+# OpenXR loader: Meta ships libopenxr_loader.so in /system_ext/lib64 (not in
+# the app linker namespace). Pull it once, plus the platform libc++ it needs
+# (private platform libs are not exposed to apps even with uses-native-library):
+#   adb pull /system_ext/lib64/libopenxr_loader.so .scratch/vendorlibs/
+#   adb pull /system/lib64/libc++.so .scratch/vendorlibs/
+# This build stages both into the APK (extractNativeLibs=true -> real files
+# in the app namespace) and resolves the xr shell's direct loader calls
+# through libopenxr_loader.so's DT_NEEDED.
+XRLOADER := $(wildcard $(VISION)/.scratch/vendorlibs/libopenxr_loader.so)
+XRSTDLIB := $(wildcard $(VISION)/.scratch/vendorlibs/libc++.so)
+
 jniLibs: $(PIC_CHUNK_OBJS) $(PIC_HOST_OBJS) $(PIC_STUB_OBJS) $(PIC_MOJO_OBJS) \
          $(PIC_XR_OBJS) $(PIC_GLUE_OBJ) $(PIC_XRINPUT_OBJ) $(PIC_VK_OBJ) $(PIC_VKSHADER_OBJ) \
          $(PIC_OBJ)/engine_bundle.o $(PIC_OBJ)/engine_imports.o
@@ -91,7 +107,9 @@ jniLibs: $(PIC_CHUNK_OBJS) $(PIC_HOST_OBJS) $(PIC_STUB_OBJS) $(PIC_MOJO_OBJS) \
 	$(CC) -O2 -shared -o $(JNI_DIR)/libhaloquest.so \
 	    $(filter-out $(PIC_OBJ)/metalwin_stub.o $(PIC_OBJ)/gamecontroller_stub.o \
 	                 $(PIC_OBJ)/metalrenderer_stub.o,$^) \
-	    -lm -ldl -landroid -llog -lvulkan
+	    -lm -ldl -landroid -llog -lvulkan \
+	    $(if $(XRLOADER),-L$(dir $(XRLOADER)) -lopenxr_loader)
+	$(if $(XRLOADER),cp $(XRLOADER) $(XRSTDLIB) $(JNI_DIR)/)
 	@nm -D $(JNI_DIR)/libhaloquest.so | grep android_main
 	@file $(JNI_DIR)/libhaloquest.so
 
