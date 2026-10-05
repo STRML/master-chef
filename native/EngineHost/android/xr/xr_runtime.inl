@@ -167,24 +167,48 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     sci.next = &meta;
-    /* The XR runtime owns the swapchain VkFormat enum: Meta's runtime
-     * rejects the BGRA picks, so try RGBA too (their Unity/Godot target).
-     * An R8G8B8A8 swapchain is NOT component-compatible with the renderer's
-     * B8G8R8A8_UNORM image for vkCmdBlitImage; the blit pass reinterprets
-     * the renderer sample as the matching channel order (see vulkanrenderer
-     * swapchain-format adoption). BGRA variants stay first so the
-     * lavender/lavapipe path is unchanged when they are accepted. */
-    static const VkFormat fmt_try[] = { VK_FORMAT_B8G8R8A8_UNORM,
-                                        VK_FORMAT_B8G8R8A8_SRGB,
-                                        VK_FORMAT_R8G8B8A8_UNORM,
-                                        VK_FORMAT_R8G8B8A8_SRGB };
-    XrResult r = XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED;
-    for (unsigned fi = 0; fi < sizeof fmt_try / sizeof fmt_try[0]; fi++) {
-        sci.format = fmt_try[fi];
-        r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+    /* Ask the runtime which VkFormats its swapchains actually take (core
+     * 1.1 xrEnumerateSwapchainFormats; Meta's libvrapiimpl implements it -
+     * verified from the shipped .so strings). Prefer the renderer-native BGRA
+     * pair (blit-compatible as-is), then the RGBA pair (their Unity/Godot
+     * target; the renderer blit reinterprets the dst view for those).
+     * Falls back to a blind ladder if the query itself is unsupported. */
+    static const int64_t fmt_prefer[] = { VK_FORMAT_B8G8R8A8_UNORM,
+                                          VK_FORMAT_B8G8R8A8_SRGB,
+                                          VK_FORMAT_R8G8B8A8_UNORM,
+                                          VK_FORMAT_R8G8B8A8_SRGB };
+    static int64_t fmt_list[32];
+    uint32_t fmt_cnt = 0;
+    XrResult fr = xrEnumerateSwapchainFormats(s->session, 32, &fmt_cnt, fmt_list);
+    __android_log_print(ANDROID_LOG_INFO, "haloquest",
+        "eye %d enumerateSwapchainFormats: %d (%u formats)", e, (int)fr, fmt_cnt);
+    for (uint32_t i = 0; i < fmt_cnt && i < 12; i++)
         __android_log_print(ANDROID_LOG_INFO, "haloquest",
-            "eye %d fmt %d -> XrResult %d", e, (int)fmt_try[fi], (int)r);
-        if (r == XR_SUCCESS) break;
+            "  fmt[%u] = %lld", i, (long long)fmt_list[i]);
+    XrResult r = XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED;
+    if (fr == XR_SUCCESS && fmt_cnt) {
+        for (unsigned pi = 0; pi < 4 && r != XR_SUCCESS; pi++) {
+            for (uint32_t i = 0; i < fmt_cnt; i++) {
+                if (fmt_list[i] != fmt_prefer[pi]) continue;
+                sci.format = (VkFormat)fmt_list[i];
+                r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+                __android_log_print(ANDROID_LOG_INFO, "haloquest",
+                    "eye %d fmt %d -> XrResult %d", e, (int)fmt_list[i], (int)r);
+                if (r == XR_SUCCESS) break;
+            }
+        }
+    } else {
+        static const VkFormat fmt_try[] = { VK_FORMAT_B8G8R8A8_UNORM,
+                                            VK_FORMAT_B8G8R8A8_SRGB,
+                                            VK_FORMAT_R8G8B8A8_UNORM,
+                                            VK_FORMAT_R8G8B8A8_SRGB };
+        for (unsigned fi = 0; fi < sizeof fmt_try / sizeof fmt_try[0]; fi++) {
+            sci.format = fmt_try[fi];
+            r = xrCreateSwapchain(s->session, &sci, &eye->swapchain);
+            __android_log_print(ANDROID_LOG_INFO, "haloquest",
+                "eye %d fmt %d -> XrResult %d", e, (int)fmt_try[fi], (int)r);
+            if (r == XR_SUCCESS) break;
+        }
     }
     if (XR_FAILED(r)) { xr_fail("xrCreateSwapchain", r); return -1; }
     uint32_t n = 0;
