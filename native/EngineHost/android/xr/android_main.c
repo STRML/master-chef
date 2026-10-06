@@ -50,6 +50,9 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
+#include <unwind.h>
+#include <stdint.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include "gamecontroller.h"
@@ -223,6 +226,15 @@ static char g_exe[1024], g_root[1024];
 
 static void *engine_thread(void *arg) {
     (void)arg;
+    /* NativeActivity stderr goes nowhere on Android 10; land the engine
+     * log (host_log and raw exit diagnostics) next to the payload where
+     * run-as / adb pull can read it. */
+    {
+        char p[1100];
+        snprintf(p, sizeof p, "%s/engine.log", g_root);
+        if (!freopen(p, "ae", stderr)) AM_LOG("engine.log redirect failed: %s", strerror(errno));
+        setvbuf(stderr, NULL, _IOLBF, 0);
+    }
     int rc = host_run(g_exe, g_root);
     AM_LOG("engine loop finished rc=%d", rc);
     atomic_store(&g_engine_done, 1);
@@ -234,7 +246,61 @@ static void *engine_thread(void *arg) {
 /* entry                                                               */
 /* ------------------------------------------------------------------ */
 
+static char g_crash_lines[48][128];
+/* Crash forensics: API 29 has no backtrace(3), but _Unwind_Backtrace and
+ * dladdr are in every Bionic/libdl. Prints "lib!symbol+0xOFF (0xABS)" per
+ * frame to stderr, which logcat routes under the app tag. Re-raise with
+ * the default handler afterwards so normal crash reporting still runs. */
+static _Unwind_Reason_Code crash_bt_cb(struct _Unwind_Context *ctx, void *arg) {
+    char **out = (char **)arg;
+    if (*out >= &g_crash_lines[0] + 48 * 128) return _URC_END_OF_STACK;
+    Dl_info info;
+    void *pc = (void *)(uintptr_t)_Unwind_GetIP(ctx);
+    if (dladdr(pc, &info) && info.dli_fname) {
+        unsigned long off = (unsigned long)((uintptr_t)pc - (uintptr_t)info.dli_fbase);
+        snprintf(*out, 128, "%s!%s+0x%lx\n", info.dli_fname,
+                 info.dli_sname ? info.dli_sname : "?", off);
+        *out += 128;
+    } else {
+        snprintf(*out, 128, "0x%lx\n", (unsigned long)(uintptr_t)pc);
+        *out += 128;
+    }
+    return _URC_NO_REASON;
+}
+static void crash_handler(int sig) {
+    static const char hdr[] = "haloquest-crash backtrace:\n";
+    char *line = &g_crash_lines[0][0];
+    ssize_t wr = write(2, hdr, sizeof hdr - 1);
+    (void)wr;
+    _Unwind_Backtrace(crash_bt_cb, &line);
+    for (char *p = &g_crash_lines[0][0]; p < line; p += 128)
+        write(2, p, strlen(p));
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+/* Hand the activity intent to com.oculus.nativeglue.ActivityUtil so the
+ * Meta runtime's in-process getLaunchId reflection resolves (the APK's
+ * Java glue, app/src/main/java). Without an answer the runtime treats
+ * the session as failed launch-check and destroys the OpenXR
+ * RuntimeInterface ~10ms after begin; the pump then aborts on the
+ * freed client mutex. See ActivityUtil.java for the id source. */
+static void init_oculus_launch_id(struct android_app *app) {
+    JavaVM *vm = app->activity->vm;
+    JNIEnv *env = NULL;
+    if ((*vm)->AttachCurrentThread(vm, &env, NULL) != JNI_OK) return;
+    jclass cls = (*env)->FindClass(env, "com/oculus/nativeglue/ActivityUtil");
+    if (!cls) { (*env)->ExceptionClear(env); return; }
+    jmethodID m = (*env)->GetStaticMethodID(env, cls, "initialize",
+                                            "(Landroid/app/Activity;)V");
+    if (m) (*env)->CallStaticVoidMethod(env, cls, m, app->activity->clazz);
+    if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+}
+
 void android_main(struct android_app *app) {
+    signal(SIGABRT, crash_handler);
+    signal(SIGSEGV, crash_handler);
+    signal(SIGBUS, crash_handler);
     app->onAppCmd = on_app_cmd;
     app->onInputEvent = on_input;
     /* Android may retain this process after a previous android_main
@@ -246,16 +312,25 @@ void android_main(struct android_app *app) {
     atomic_store(&g_window_ready, 0);
     g_frame_seq = 0;
     atomic_store(&g_consumed_seq, 0);
-    /* Game root: the EXTERNAL files dir + /game — the exact path the
-     * Quest setup stage adb-pushes to (/sdcard/Android/data/<pkg>/files).
-     * internalDataPath is the /data/user/0 dir, which adb cannot write
-     * without root; it is only a fallback for devices that report no
-     * external storage. HALO_ROOT overrides for device-side testing. */
+    /* Game root: prefer the INTERNAL files dir (+/game). On this Quest
+     * build the app's view of /storage/emulated/0/Android/data/<pkg>/files
+     * is a FUSE bind of the internal dir, and payload files that adb-push
+     * drops there (shell-owned) come back EACCES for the app - the engine
+     * then exits(2) in load_image, whose global destructors tear down the
+     * OpenXR loader under the frame pump (FORTIFY abort). Debuggable
+     * installs receive the payload via `adb shell run-as <pkg> tar -C
+     * <internalDataPath> -xf -`; external +/game stays as a fallback.
+     * HALO_ROOT overrides for device-side testing. */
     const char *root = getenv("HALO_ROOT");
     if (!root || !root[0]) {
         static char rootbuf[1024];
-        const char *data = app->activity->externalDataPath;
-        if (!data || !data[0]) data = app->activity->internalDataPath;
+        char probe[1024];
+        const char *data = app->activity->internalDataPath;
+        snprintf(probe, sizeof probe, "%s/game/halo.exe",
+                 app->activity->externalDataPath ? app->activity->externalDataPath : "");
+        if ((!data || !data[0]) || access(probe, R_OK) == 0)
+            data = app->activity->externalDataPath;   /* legacy layout or no internal */
+        if (!data || !data[0]) data = ".";
         snprintf(rootbuf, sizeof rootbuf, "%s/game", data);
         root = rootbuf;
     }
@@ -263,6 +338,7 @@ void android_main(struct android_app *app) {
     snprintf(g_exe, sizeof g_exe, "%s/halo.exe", g_root);
     /* Log the resolved root so the on-device validation can confirm the
      * adb-pushed payload location via `adb logcat -s haloquest`. */
+    init_oculus_launch_id(app);
     AM_LOG("game root: %s", g_root);
     const char *extra = getenv("HALO_CMDLINE_EXTRA");
     static char cmd[2048];
@@ -303,7 +379,7 @@ void android_main(struct android_app *app) {
     cfg.application_vm = app->activity->vm;
     cfg.application_activity = app->activity->clazz;
     cfg.max_frames = 0;   /* run until the FSM says exit */
-    cfg.show_quads = 1;
+    cfg.show_quads = 1;   /* quad UI layers ride every frame's layer stack */
     g_shell = xr_shell_create(&cfg);
     if (!g_shell) {
         AM_LOG("xr_shell_create failed: %s", xr_shell_last_error());
@@ -329,6 +405,12 @@ void android_main(struct android_app *app) {
 
     /* 6. XR frame pump on this thread until the shell exits (back
      *    button, XR session exit, or the engine finishing). */
+    /* The Meta runtime installs its own SIGABRT/SIGSEGV handlers when the
+     * OpenXR instance loads, overriding ours. Re-arm now that it has run so
+     * our backtrace prints first (stderr -> logcat), then re-raises. */
+    signal(SIGABRT, crash_handler);
+    signal(SIGSEGV, crash_handler);
+    signal(SIGBUS, crash_handler);
     while (!atomic_load(&g_engine_shutdown) && !xr_shell_should_exit(g_shell)) {
         int f = pump_xr_frame();
         if (f < 0) { AM_LOG("xr frame failed: %s", xr_shell_last_error()); break; }

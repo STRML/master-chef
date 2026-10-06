@@ -64,10 +64,6 @@ static int xr_make_vulkan(xr_shell *s, const xr_shell_config *cfg) {
     XrGraphicsRequirementsVulkan2KHR greq = {XR_TYPE_GRAPHICS_REQUIREMENTS_VULKAN2_KHR};
     if (!xrGetVulkanGraphicsRequirements2KHR) { xr_fail("xrGetVulkanGraphicsRequirements2KHR", XR_ERROR_FUNCTION_UNSUPPORTED); return -1; }
     r = xrGetVulkanGraphicsRequirements2KHR(s->instance, s->system, &greq);
-    __android_log_print(ANDROID_LOG_INFO, "haloquest",
-        "gfx req: %d min=%llu max=%llu", (int)r,
-        (unsigned long long)greq.minApiVersionSupported,
-        (unsigned long long)greq.maxApiVersionSupported);
     if (XR_FAILED(r)) { xr_fail("xrGetVulkanGraphicsRequirements2KHR", r); return -1; }
     /* 2. The XR-recommended physical device. */
     XrVulkanGraphicsDeviceGetInfoKHR gi = {XR_TYPE_VULKAN_GRAPHICS_DEVICE_GET_INFO_KHR};
@@ -182,11 +178,6 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
     static int64_t fmt_list[128];
     uint32_t fmt_cnt = 0;
     XrResult fr = xrEnumerateSwapchainFormats(s->session, 128, &fmt_cnt, fmt_list);
-    __android_log_print(ANDROID_LOG_INFO, "haloquest",
-        "eye %d enumerateSwapchainFormats: %d (%u formats)", e, (int)fr, fmt_cnt);
-    for (uint32_t i = 0; i < fmt_cnt && i < 12; i++)
-        __android_log_print(ANDROID_LOG_INFO, "haloquest",
-            "  fmt[%u] = %lld", i, (long long)fmt_list[i]);
     /* Variant ladder: for each preferred format (in preference order,
      * only if the runtime enumerated it), try the two create-info shapes:
      *   A) chained XR_META_vulkan_swapchain_create_info requesting the
@@ -199,8 +190,6 @@ static int xr_make_eye_swapchain(xr_shell *s, int e) {
      * knows whether TRANSFER_DST exists on the images. */
     XrResult r = XR_ERROR_SWAPCHAIN_FORMAT_UNSUPPORTED;
     sci.mipCount = 1;
-    __android_log_print(ANDROID_LOG_INFO, "haloquest",
-        "eye %d swapchain size %ux%u", e, eye->width, eye->height);
     if (fr == XR_SUCCESS && fmt_cnt) {
         for (unsigned pi = 0; pi < 4 && r != XR_SUCCESS; pi++) {
             for (uint32_t i = 0; i < fmt_cnt; i++) {
@@ -492,6 +481,8 @@ static void xr_poll_events(xr_shell *s) {
         switch (ev.type) {
         case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
             XrEventDataSessionStateChanged *sc = (XrEventDataSessionStateChanged*)&ev;
+            __android_log_print(ANDROID_LOG_INFO, "haloquest",
+                "session state -> %d", (int)sc->state);
             xr_lc_send(&s->lc, xr_lc_event_from_session_state(sc->state));
             if (s->lc.actions & XR_LC_ACT_QUIT) xr_shell_request_exit(s);
             break;

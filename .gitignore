@@ -63,3 +63,4 @@ android/local.properties
 .scratch/
 .serena/
 tools/.cache/
+native/EngineHost/android/xr/*_tests_host

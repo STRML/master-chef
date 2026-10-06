@@ -11,7 +11,7 @@ set -e
 cd "$(dirname "$0")/.."
 ADB="$HOME/Library/Android/sdk/platform-tools/adb"
 PKG=com.masterchef.haloquest
-ACT=android.app.NativeActivity
+ACT=com.oculus.nativeglue.OculusNativeActivity
 LOG=.scratch/quest_run.log
 CAP=.scratch/quest_frame.png
 
