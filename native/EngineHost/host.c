@@ -615,6 +615,10 @@ static volatile int in_segv;
 static void dump_cpu(EngineCPU *c);
 static void segv_info(int sig, siginfo_t *si, void *uc) {
     if (in_segv) _exit(5); in_segv = 1;
+    /* NOTE: with MAP_NORESERVE the dump's G32 reads can themselves fault on
+     * uncommitted pages; that nested SIGSEGV lands here and exits 5. So exit
+     * code 5 may mean "diagnostic truncated by a guest page fault", not a
+     * double fault in engine code. */
     EngineCPU *fault_cpu = host_active_cpu ? host_active_cpu : &host_cpu;
     host_log("   si_code=%d (%s)", si->si_code,
              si->si_code == SEGV_MAPERR ? "SEGV_MAPERR: unmapped/torn VMA" :

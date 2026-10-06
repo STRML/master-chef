@@ -258,23 +258,42 @@ OSStatus AudioQueuePause(AudioQueueRef inAQ) {
     pthread_mutex_unlock(&inAQ->lock);
     return noErr;
 }
-
-/* Dispose stops the stream, joins the worker (unblocking any in-flight
- * AAudioStream_write via quit+broadcast), then frees every buffer. The
- * callback runs with no lock held, so a watchdog Dispose from inside the
- * callback cannot deadlock; directsound.c NULLs its buffer pointers on the
- * client side, matching the real AudioQueue dispose contract. */
+/* Dispose stops the stream, joins the worker, then frees every buffer.
+ * The client callback runs with no queue lock held, so a watchdog Dispose
+ * from inside the callback cannot deadlock - but a worker can never join
+ * itself (EDEADLK would then free under the still-running callback), so a
+ * dispose on the worker thread stops/closes the stream and returns without
+ * freeing anything: a leak beats the use-after-free. Note quit+broadcast
+ * only wakes a cond-waiting worker; an in-flight AAudioStream_write is
+ * bounded by its own timeout, not unblocked here. directsound.c NULLs its
+ * buffer pointers client-side, matching the real AudioQueue contract. */
 OSStatus AudioQueueDispose(AudioQueueRef inAQ, Boolean inImmediate) {
     (void)inImmediate;
     if (!inAQ) return -1;
     pthread_mutex_lock(&inAQ->lock);
     inAQ->quit = 1;
     inAQ->running = 0;
+    if (inAQ->thread_started && pthread_equal(inAQ->thread, pthread_self())) {
+        /* Dispose from inside the client callback: the worker cannot join
+         * itself, and joining nothing then freeing races this very thread's
+         * next buffer touch (b->mAudioDataByteSize / q->stream). Leaking the
+         * queue here is strictly better than the use-after-free, so stop
+         * and close the stream, free nothing, and let the buffers be
+         * reclaimed with the process. */
+        pthread_cond_broadcast(&inAQ->cond);
+        pthread_mutex_unlock(&inAQ->lock);
+        if (inAQ->stream) {
+            AAudioStream_requestStop(inAQ->stream);
+            AAudioStream_close(inAQ->stream);
+            inAQ->stream = NULL;
+        }
+        return noErr;
+    }
     /* Snapshot thread_started inside the lock: AudioQueueStart publishes it
      * under the same mutex, so a Dispose that follows a Start can never read
      * a stale 0 here and skip the join. Skipping the join would free buffers,
      * the stream and the queue while the worker is still rendering into a
-     * popped buffer (and re-enqueuing via the callback) — a use-after-free
+     * popped buffer (and re-enqueuing via the callback) - a use-after-free
      * that bionic hands straight back to the next AudioQueueAllocateBuffer,
      * scribbling mixer output over fresh allocations. */
     int join_worker = inAQ->thread_started;
