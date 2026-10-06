@@ -612,14 +612,28 @@ static void heartbeat(int sig) { (void)sig;
     alarm(15);
 }
 static volatile int in_segv;
-static void segv(int sig) {
+static void dump_cpu(EngineCPU *c);
+static void segv_info(int sig, siginfo_t *si, void *uc) {
+    (void)uc;
     if (in_segv) _exit(5); in_segv = 1;
     EngineCPU *fault_cpu = host_active_cpu ? host_active_cpu : &host_cpu;
     host_log("fatal signal %d at guest pc %08X (esp %08X)%s", sig, fault_cpu->pc, fault_cpu->gpr[4], fault_cpu->gpr[4] < 0x100000u ? "  <- GUEST STACK OVERFLOW" : "");
+    { uintptr_t fa = (uintptr_t)si->si_addr, base = (uintptr_t)engine_flat_base;
+      if (fa >= base && fa - base < GUEST_SIZE)
+          host_log("   fault host addr=%p = guest %08X", si->si_addr, (unsigned)(fa - base));
+      else if (fa < base && base - fa < GUEST_SIZE)
+          host_log("   fault host addr=%p = guest -0x%llX (below window)", si->si_addr, (unsigned long long)(base - fa));
+      else host_log("   fault host addr=%p (outside guest window)", si->si_addr); }
     { uint32_t esi = fault_cpu->gpr[6];
       if (esi >= 0x10000u && esi < 0xFFFF0000u) { uint32_t vt = G32(esi);
         host_log("   object=%08X vtable=%08X vt[0]=%08X vt[2]=%08X (call target) object[0x84]=%08X",
                  esi, vt, (vt>=0x10000u&&vt<0xFFFF0000u)?G32(vt):0, (vt>=0x10000u&&vt<0xFFFF0000u)?G32(vt+8):0, G32(esi+0x84)); } }
+    dump_cpu(fault_cpu);   /* all eight guest GPRs + pc + stack window */
+    { uint32_t p = fault_cpu->pc;
+      if (p >= 0x401000u && p < 0x639596u) {
+        uint8_t ib[16]; for (int i = 0; i < 16; i++) ib[i] = *(uint8_t*)GPTR(p + (unsigned)i);
+        host_log("   guest code @%08X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+                 p, ib[0], ib[1], ib[2], ib[3], ib[4], ib[5], ib[6], ib[7], ib[8], ib[9], ib[10], ib[11], ib[12], ib[13], ib[14], ib[15]); } }
     void host_backtrace(EngineCPU*,const char*); host_backtrace(fault_cpu, "segv");
     _exit(4);
 }
@@ -633,13 +647,20 @@ void engine_reuse_entry(EngineCPU *cpu, uint32_t entry);
 
 int host_run(const char *exe, const char *root) {
     setvbuf(stderr, NULL, _IOLBF, 0);
-    { const char *tl=getenv("HALO_TRACE_LO"), *th=getenv("HALO_TRACE_HI"); if(tl&&th){ engine_trace_lo=(uint32_t)strtoul(tl,0,16); engine_trace_hi=(uint32_t)strtoul(th,0,16); host_log("PC trace enabled %08X..%08X", engine_trace_lo, engine_trace_hi);} }
     host_game_root = root;
-    engine_flat_base = mmap(NULL, GUEST_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    /* Guest RAM is a 4 GiB window over 32-bit guest addresses. Without
+     * MAP_NORESERVE the kernel accounting (16K pages + kpagecount refs on
+     * Android, plus a fully-committed static executable on macOS) can make
+     * a legitimate guest store SIGSEGV deep into the bump heap: the Halo
+     * engine's own stores into its .data pool (0x6CE818 records) faulted
+     * exactly this way on the headset (guest pc 005260A1, exit 4). The
+     * window is virtual; pages commit on first touch. */
+    engine_flat_base = mmap(NULL, GUEST_SIZE, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
     if (engine_flat_base == MAP_FAILED) { host_log("cannot reserve guest address space"); return 2; }
     mprotect(engine_flat_base, 0x10000, PROT_NONE);   /* catch null dereferences */
     { static char altstk[262144]; stack_t ss = { .ss_sp = altstk, .ss_size = sizeof altstk, .ss_flags = 0 }; sigaltstack(&ss, NULL);
-      struct sigaction sa; memset(&sa, 0, sizeof sa); sa.sa_handler = segv; sa.sa_flags = SA_ONSTACK; sigemptyset(&sa.sa_mask);
+      struct sigaction sa; memset(&sa, 0, sizeof sa); sa.sa_sigaction = segv_info; sa.sa_flags = SA_ONSTACK | SA_SIGINFO; sigemptyset(&sa.sa_mask);
       sigaction(SIGSEGV, &sa, NULL); sigaction(SIGBUS, &sa, NULL); }
     signal(SIGALRM, heartbeat); alarm(15);
     load_image(exe);

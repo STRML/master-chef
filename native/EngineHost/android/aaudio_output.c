@@ -119,15 +119,22 @@ static void *aaudio_output_worker(void *arg) {
          * as on the stub and on the real AudioQueue. */
         if (!running) {
             /* Paused: park the buffer at the tail so Start re-arms it; no
-             * callback, no device write, like the stub. */
+             * callback, no device write, like the stub. Re-check quit/dispose
+             * under the lock: Dispose may have completed while we were
+             * unlocked (its join cannot see us until this line), in which
+             * case b and the queue internals are already freed. */
             pthread_mutex_lock(&q->lock);
+            if (q->quit || q->disconnected) {
+                pthread_mutex_unlock(&q->lock);
+                continue;
+            }
             b->next = NULL;
             if (q->tail) q->tail->next = b; else q->head = b;
             q->tail = b;
             pthread_mutex_unlock(&q->lock);
             continue;
         }
-        if (dead) continue; /* buffer drops out; Dispose frees the all list */
+        if (q->quit || dead) continue; /* buffer drops out; Dispose frees the all list */
         /* Client callback runs with no queue lock held: it renders the
          * mixer's next block into mAudioData and re-enqueues the buffer
          * (AudioQueueEnqueueBuffer) before returning. */
@@ -263,16 +270,28 @@ OSStatus AudioQueueDispose(AudioQueueRef inAQ, Boolean inImmediate) {
     pthread_mutex_lock(&inAQ->lock);
     inAQ->quit = 1;
     inAQ->running = 0;
+    /* Snapshot thread_started inside the lock: AudioQueueStart publishes it
+     * under the same mutex, so a Dispose that follows a Start can never read
+     * a stale 0 here and skip the join. Skipping the join would free buffers,
+     * the stream and the queue while the worker is still rendering into a
+     * popped buffer (and re-enqueuing via the callback) — a use-after-free
+     * that bionic hands straight back to the next AudioQueueAllocateBuffer,
+     * scribbling mixer output over fresh allocations. */
+    int join_worker = inAQ->thread_started;
     pthread_cond_broadcast(&inAQ->cond);
     pthread_mutex_unlock(&inAQ->lock);
-    if (inAQ->thread_started) pthread_join(inAQ->thread, NULL);
+    if (join_worker) pthread_join(inAQ->thread, NULL);
     if (inAQ->stream) {
         AAudioStream_requestStop(inAQ->stream);
         AAudioStream_close(inAQ->stream);
         inAQ->stream = NULL;
     }
+    /* Buffers are linked into the queue's allocation list through all_next;
+     * next is the FIFO link (NULL on every buffer once the worker stops).
+     * Walking next here freed only the list head and leaked the other two
+     * buffers, their mAudioData and the queue on every watchdog rebuild. */
     for (AudioQueueBufferRef b = inAQ->all; b;) {
-        AudioQueueBufferRef next = b->next;
+        AudioQueueBufferRef next = b->all_next;
         free(b->mAudioData);
         free(b);
         b = next;
