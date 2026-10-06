@@ -614,9 +614,31 @@ static void heartbeat(int sig) { (void)sig;
 static volatile int in_segv;
 static void dump_cpu(EngineCPU *c);
 static void segv_info(int sig, siginfo_t *si, void *uc) {
-    (void)uc;
     if (in_segv) _exit(5); in_segv = 1;
     EngineCPU *fault_cpu = host_active_cpu ? host_active_cpu : &host_cpu;
+    host_log("   si_code=%d (%s)", si->si_code,
+             si->si_code == SEGV_MAPERR ? "SEGV_MAPERR: unmapped/torn VMA" :
+             si->si_code == SEGV_ACCERR ? "SEGV_ACCERR: protection" :
+#ifdef BUS_ADRERR
+             si->si_code == BUS_ADRERR ? "BUS_ADRERR: physical/bus" :
+#endif
+             "other");
+#ifdef __ANDROID__
+    { /* The true faulting host instruction and registers: bionic's
+       * mcontext_t. Guest GPRs alone only show the engine's last
+       * dispatched pc; this names where the shim itself died. */
+      ucontext_t *ctx = (ucontext_t *)uc;
+      host_log("   host pc=%016llX lr=%016llX sp=%016llX",
+               (unsigned long long)ctx->uc_mcontext.pc,
+               (unsigned long long)ctx->uc_mcontext.regs[30],
+               (unsigned long long)ctx->uc_mcontext.sp);
+      host_log("   host x0=%016llX x1=%016llX x2=%016llX x3=%016llX x4=%016llX x5=%016llX",
+               (unsigned long long)ctx->uc_mcontext.regs[0], (unsigned long long)ctx->uc_mcontext.regs[1],
+               (unsigned long long)ctx->uc_mcontext.regs[2], (unsigned long long)ctx->uc_mcontext.regs[3],
+               (unsigned long long)ctx->uc_mcontext.regs[4], (unsigned long long)ctx->uc_mcontext.regs[5]); }
+#else
+    (void)uc;
+#endif
     host_log("fatal signal %d at guest pc %08X (esp %08X)%s", sig, fault_cpu->pc, fault_cpu->gpr[4], fault_cpu->gpr[4] < 0x100000u ? "  <- GUEST STACK OVERFLOW" : "");
     { uintptr_t fa = (uintptr_t)si->si_addr, base = (uintptr_t)engine_flat_base;
       if (fa >= base && fa - base < GUEST_SIZE)
