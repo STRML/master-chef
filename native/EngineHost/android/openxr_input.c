@@ -98,18 +98,19 @@ int xr_input_attach(XrInstance inst, XrSession session) {
         {c->menu, XR_NULL_PATH},   {c->gripL, XR_NULL_PATH}, {c->gripR, XR_NULL_PATH},
         {c->hapticL, XR_NULL_PATH}, {c->hapticR, XR_NULL_PATH},
     };
+    /* Oculus touch_plus component leaves. Sub-action paths (hands[]) carry
+     * the hand; a "/input/left/..." leaf under a hand subaction resolves to
+     * the nonexistent /user/hand/left/input/left/... and Meta's runtime
+     * rejects the whole suggest (this was the "controllers unavailable"
+     * bug). Clicks - not *_touch - drive the Halo bindings. See docs/CONTROLS.md. */
     const char *leaf[] = {
-        "/input/left/thumbstick", "/input/right/thumbstick",
-        "/input/left/trigger", "/input/right/trigger",
-        "/input/a_touch", "/input/b_touch", "/input/x_touch", "/input/y_touch",
-        "/input/left_thumbstick_click", "/input/right_thumbstick_click",
-        "/input/menu_touch", "/input/left_squeeze_click", "/input/right_squeeze_click",
-        "/output/left_haptic", "/output/right_haptic",
+        "/input/thumbstick", "/input/thumbstick",
+        "/input/trigger", "/input/trigger",
+        "/input/a/click", "/input/b/click", "/input/x/click", "/input/y/click",
+        "/input/thumbstick/click", "/input/thumbstick/click",
+        "/input/system/click", "/input/squeeze/click", "/input/squeeze/click",
+        "/output/haptic", "/output/haptic",
     };
-    for (size_t i = 0; i < sizeof binds / sizeof binds[0]; i++)
-        if (xrStringToPath(inst, leaf[i], &binds[i].binding) != XR_SUCCESS)
-            return -1;
-
     XrInteractionProfileSuggestedBinding isb = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
     isb.interactionProfile = profile;
     isb.suggestedBindings = binds;
